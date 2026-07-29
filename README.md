@@ -90,8 +90,8 @@ lib/
 
 ### 1. Clone Repositori
 ```bash
-git clone https://github.com/AndhikaBagus115/APP-Mobile-Absensi-Mts-Suguja.git
-cd APP-Mobile-Absensi-Mts-Suguja
+git clone https://github.com/AndhikaBagus115/Mobile-Absensi-Siswa-Mts-Suguja.git
+cd Mobile-Absensi-Siswa-Mts-Suguja
 ```
 
 ### 2. Konfigurasi Environment (`.env`)

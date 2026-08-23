@@ -8,11 +8,15 @@ class AppConstants {
 
   /// Get Supabase URL from environment variables
   static String get supabaseUrl {
-    final url = dotenv.env['SUPABASE_URL'];
+    var url = dotenv.env['SUPABASE_URL']?.trim();
     if (url == null || url.isEmpty) {
       throw Exception(
         'SUPABASE_URL is not configured. Please check your .env file.',
       );
+    }
+    url = url.replaceAll(RegExp(r'/rest/v1/?$'), '');
+    if (url.endsWith('/')) {
+      url = url.substring(0, url.length - 1);
     }
     return url;
   }
@@ -32,6 +36,23 @@ class AppConstants {
   static String get appEnvironment {
     return dotenv.env['APP_ENVIRONMENT'] ?? 'development';
   }
+
+  /// Get OneSignal App ID from environment variables
+  static String get onesignalAppId {
+    return dotenv.env['ONESIGNAL_APP_ID']?.trim() ?? '';
+  }
+
+  /// Get OneSignal REST API Key from environment variables (for sending notifications)
+  static String get onesignalRestApiKey {
+    return dotenv.env['ONESIGNAL_REST_API_KEY']?.trim() ?? '';
+  }
+
+  /// Check if OneSignal is configured
+  static bool get isOneSignalConfigured => onesignalAppId.isNotEmpty;
+
+  /// Check if OneSignal can send notifications via REST API
+  static bool get canSendNotifications =>
+      isOneSignalConfigured && onesignalRestApiKey.isNotEmpty;
 
   /// Check if running in production environment
   static bool get isProduction => appEnvironment == 'production';

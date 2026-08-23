@@ -5,6 +5,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 import 'core/constants.dart';
+import 'data/services/onesignal_service.dart';
 import 'features/auth/auth_wrapper.dart';
 
 void main() async {
@@ -21,6 +22,9 @@ void main() async {
     url: AppConstants.supabaseUrl,
     anonKey: AppConstants.supabaseAnonKey,
   );
+
+  // 4. Initialize OneSignal Push Notifications
+  await OneSignalService.initialize();
 
   runApp(const MyApp());
 }

@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 import '../../core/constants.dart';
 import '../../core/exceptions.dart';
 import '../models/models.dart';
+import '../services/onesignal_service.dart';
 import '../services/supabase_service.dart';
 
 /// Repository for teacher (guru) and authentication operations
@@ -16,10 +17,14 @@ class AuthRepository {
     required String password,
   }) async {
     try {
-      return await _client.auth.signInWithPassword(
+      final response = await _client.auth.signInWithPassword(
         email: email.trim(),
-        password: password.trim(),
+        password: password,
       );
+      if (response.user != null) {
+        await OneSignalService.loginUser(response.user!.id);
+      }
+      return response;
     } on supabase.AuthException catch (e) {
       throw AuthException(
         message: e.message,
@@ -31,9 +36,12 @@ class AuthRepository {
   /// Sign out current user
   Future<void> signOut() async {
     try {
+      await OneSignalService.logoutUser();
       await _client.auth.signOut();
     } on supabase.AuthException catch (e) {
       debugPrint('Sign out error: ${e.message}');
+    } catch (e) {
+      debugPrint('Sign out error: $e');
     }
   }
 

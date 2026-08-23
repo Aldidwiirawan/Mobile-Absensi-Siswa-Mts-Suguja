@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 import '../../core/constants.dart';
 import '../../core/exceptions.dart';
 import '../models/models.dart';
+import '../services/onesignal_service.dart';
 import '../services/supabase_service.dart';
 
 /// Repository for attendance (absensi) operations
@@ -134,6 +135,18 @@ class AbsensiRepository {
           });
         }
 
+        // Send push notification to parents asynchronously
+        OneSignalService.sendAbsensiMasukNotification(
+          siswaId: siswaId,
+          namaSiswa: namaSiswa,
+          jamMasuk: jamScanStr,
+          isLate: isLate,
+          lateMinutes: lateMinutes,
+        ).catchError((e) {
+          debugPrint('[Absensi] Gagal mengirim notifikasi masuk OneSignal: $e');
+          return false;
+        });
+
         return AbsensiResult(
           success: true,
           message: isLate
@@ -216,6 +229,16 @@ class AbsensiRepository {
       AbsensiColumns.status: AttendanceStatus.pulang.value,
       AbsensiColumns.updatedAt: DateTime.now().toIso8601String(),
     }).eq('id', existingData['id']);
+
+    // Send push notification to parents asynchronously
+    OneSignalService.sendAbsensiPulangNotification(
+      siswaId: siswaId,
+      namaSiswa: namaSiswa,
+      jamPulang: jamScanStr,
+    ).catchError((e) {
+      debugPrint('[Absensi] Gagal mengirim notifikasi pulang OneSignal: $e');
+      return false;
+    });
 
     return AbsensiResult(
       success: true,

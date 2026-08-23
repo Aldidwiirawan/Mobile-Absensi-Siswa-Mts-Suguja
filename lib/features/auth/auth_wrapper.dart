@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/constants.dart';
 import '../../core/exceptions.dart';
 import '../../data/repositories/repositories.dart';
+import '../../data/services/onesignal_service.dart';
 import 'form_login.dart';
 import 'dashboard_screen.dart';
 import '../scanner/scan_dashboard_screen.dart';
@@ -57,6 +58,12 @@ class _AuthWrapperState extends State<AuthWrapper> {
           });
         }
         return;
+      }
+
+      // Sync OneSignal session & user role
+      if (userId != null) {
+        await OneSignalService.loginUser(userId);
+        await OneSignalService.setUserRole(role.value);
       }
 
       if (!mounted) return;

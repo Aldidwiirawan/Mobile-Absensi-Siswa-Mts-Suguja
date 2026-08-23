@@ -1,15 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
-/// QR Code Scanner widget with camera and overlay
+import '../../core/ui/scanner_laser_overlay.dart';
+
+/// QR Code Scanner widget with camera, smooth laser overlay, and clean AppBar
 class BarcodeScannerPage extends StatefulWidget {
   final void Function(String) onResult;
   final Color borderColor;
+  final Widget? overlayPopup;
 
   const BarcodeScannerPage({
     super.key,
     required this.onResult,
     required this.borderColor,
+    this.overlayPopup,
   });
 
   @override
@@ -34,11 +38,19 @@ class _BarcodeScannerPageState extends State<BarcodeScannerPage> {
       backgroundColor: Colors.black,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text('Pemindai Absensi'),
+        title: const Text(
+          'Pemindai Presensi QR',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+        ),
         centerTitle: true,
-        backgroundColor: Colors.transparent,
+        backgroundColor: Colors.black.withValues(alpha: 0.4),
         foregroundColor: Colors.white,
         elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
+          tooltip: 'Kembali',
+          onPressed: () => Navigator.pop(context),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.cameraswitch_rounded),
@@ -47,7 +59,7 @@ class _BarcodeScannerPageState extends State<BarcodeScannerPage> {
           ),
           IconButton(
             icon: const Icon(Icons.flash_on_rounded),
-            tooltip: 'Flash',
+            tooltip: 'Flash / Senter',
             onPressed: () => _controller.toggleTorch(),
           ),
           const SizedBox(width: 8),
@@ -76,59 +88,54 @@ class _BarcodeScannerPageState extends State<BarcodeScannerPage> {
             },
           ),
 
-          // Overlay
+          // Animated Laser Scanner Overlay
           RepaintBoundary(
-            child: CustomPaint(
-              size: MediaQuery.of(context).size,
-              painter: ScannerOverlayPainter(
-                borderColor: widget.borderColor,
-              ),
+            child: AnimatedScannerOverlay(
+              borderColor: widget.borderColor,
+              isScanning: true,
             ),
           ),
 
-          // Instructions
-          const Positioned(
-            bottom: 80,
-            left: 0,
-            right: 0,
-            child: Column(
-              children: [
-                Text(
-                  'Arahkan QR Code ke dalam kotak',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    shadows: [Shadow(color: Colors.black, blurRadius: 4)],
-                  ),
-                ),
-                SizedBox(height: 8),
-                Text(
-                  'Pastikan pencahayaan cukup',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                    shadows: [Shadow(color: Colors.black, blurRadius: 4)],
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Close Button
+          // Instruction Hint Badge
           Positioned(
-            top: 40,
-            left: 16,
-            child: CircleAvatar(
-              backgroundColor: Colors.black45,
-              child: IconButton(
-                icon: const Icon(Icons.close, color: Colors.white),
-                onPressed: () => Navigator.pop(context),
+            bottom: widget.overlayPopup != null ? 140 : 50,
+            left: 24,
+            right: 24,
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 300),
+              opacity: widget.overlayPopup != null ? 0.3 : 1.0,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.65),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.white24),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.qr_code_rounded, color: Colors.white, size: 18),
+                    SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        'Arahkan QR Code siswa ke dalam kotak',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
+
+          // Dynamic Result Popup if available
+          if (widget.overlayPopup != null) widget.overlayPopup!,
         ],
       ),
     );
@@ -138,106 +145,5 @@ class _BarcodeScannerPageState extends State<BarcodeScannerPage> {
   void dispose() {
     _controller.dispose();
     super.dispose();
-  }
-}
-
-/// Custom painter for scanner overlay
-class ScannerOverlayPainter extends CustomPainter {
-  final Color borderColor;
-
-  ScannerOverlayPainter({required this.borderColor});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final double scanAreaSize = size.width * 0.7;
-    final double left = (size.width - scanAreaSize) / 2;
-    final double top = (size.height - scanAreaSize) / 2;
-    final Rect scanRect = Rect.fromLTWH(left, top, scanAreaSize, scanAreaSize);
-
-    // Dark overlay outside scan area
-    final backgroundPaint = Paint()
-      ..color = Colors.black.withValues(alpha: 0.6)
-      ..style = PaintingStyle.fill;
-
-    final path = Path()
-      ..addRect(Rect.fromLTWH(0, 0, size.width, size.height))
-      ..addRRect(
-        RRect.fromRectAndRadius(scanRect, const Radius.circular(12)),
-      )
-      ..fillType = PathFillType.evenOdd;
-
-    canvas.drawPath(path, backgroundPaint);
-
-    // Border around scan area
-    final borderPaint = Paint()
-      ..color = borderColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 4;
-
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(scanRect, const Radius.circular(12)),
-      borderPaint,
-    );
-
-    // Corner decorations
-    final cornerLength = scanAreaSize * 0.15;
-    final cornerPaint = Paint()
-      ..color = borderColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 6
-      ..strokeCap = StrokeCap.round;
-
-    // Top-left corner
-    canvas.drawLine(
-      Offset(left, top + cornerLength),
-      Offset(left, top),
-      cornerPaint,
-    );
-    canvas.drawLine(
-      Offset(left, top),
-      Offset(left + cornerLength, top),
-      cornerPaint,
-    );
-
-    // Top-right corner
-    canvas.drawLine(
-      Offset(left + scanAreaSize - cornerLength, top),
-      Offset(left + scanAreaSize, top),
-      cornerPaint,
-    );
-    canvas.drawLine(
-      Offset(left + scanAreaSize, top),
-      Offset(left + scanAreaSize, top + cornerLength),
-      cornerPaint,
-    );
-
-    // Bottom-left corner
-    canvas.drawLine(
-      Offset(left, top + scanAreaSize - cornerLength),
-      Offset(left, top + scanAreaSize),
-      cornerPaint,
-    );
-    canvas.drawLine(
-      Offset(left, top + scanAreaSize),
-      Offset(left + cornerLength, top + scanAreaSize),
-      cornerPaint,
-    );
-
-    // Bottom-right corner
-    canvas.drawLine(
-      Offset(left + scanAreaSize - cornerLength, top + scanAreaSize),
-      Offset(left + scanAreaSize, top + scanAreaSize),
-      cornerPaint,
-    );
-    canvas.drawLine(
-      Offset(left + scanAreaSize, top + scanAreaSize - cornerLength),
-      Offset(left + scanAreaSize, top + scanAreaSize),
-      cornerPaint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant ScannerOverlayPainter oldDelegate) {
-    return oldDelegate.borderColor != borderColor;
   }
 }

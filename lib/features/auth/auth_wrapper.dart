@@ -60,10 +60,10 @@ class _AuthWrapperState extends State<AuthWrapper> {
         return;
       }
 
-      // Sync OneSignal session & user role
+      // Sync OneSignal session & user role (non-blocking)
       if (userId != null) {
-        await OneSignalService.loginUser(userId);
-        await OneSignalService.setUserRole(role.value);
+        OneSignalService.loginUser(userId).catchError((_) {});
+        OneSignalService.setUserRole(role.value).catchError((_) {});
       }
 
       if (!mounted) return;

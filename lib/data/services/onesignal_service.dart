@@ -23,21 +23,24 @@ class OneSignalService {
 
     try {
       if (kDebugMode) {
-        OneSignal.Debug.setLogLevel(OSLogLevel.verbose);
+        OneSignal.Debug.setLogLevel(OSLogLevel.warn);
         OneSignal.Debug.setAlertLevel(OSLogLevel.none);
       }
 
       // Initialize OneSignal with App ID
       OneSignal.initialize(appId);
 
-      // Request push notification permissions (Android 13+ & iOS)
-      await OneSignal.Notifications.requestPermission(true);
-
       // Register notification listeners
       _setupListeners();
 
       _isInitialized = true;
       debugPrint('[OneSignal] Berhasil diinisialisasi dengan App ID: $appId');
+
+      // Request push notification permissions asynchronously (don't block app launch)
+      OneSignal.Notifications.requestPermission(true).catchError((e) {
+        debugPrint('[OneSignal] Warning request permission: $e');
+        return false;
+      });
     } catch (e) {
       debugPrint('[OneSignal] Gagal inisialisasi: $e');
     }

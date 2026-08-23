@@ -1,9 +1,14 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/constants.dart';
+import '../../core/ui/bouncing_widget.dart';
+import '../../core/ui/status_selector_pills.dart';
 import 'edit_siswa_logic.dart';
 
 class EditSiswaScreen extends StatelessWidget {
@@ -78,102 +83,174 @@ class _EditSiswaFormState extends State<_EditSiswaForm> {
     final isButuhSurat = currentStatus.requiresDocument;
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text('Validasi Absensi'),
+        title: const Text(
+          'Validasi Absensi Siswa',
+          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+        ),
         backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+        foregroundColor: const Color(0xFF0F172A),
         elevation: 0,
       ),
-      backgroundColor: Colors.white,
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
         child: Form(
           key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildInfoCard(),
+              // Student Info Hero Card
+              _buildStudentHeaderCard()
+                  .animate()
+                  .fadeIn(duration: 350.ms)
+                  .slideY(begin: -0.1, end: 0),
+
               const SizedBox(height: 24),
 
-              // Status Dropdown
-              const Text(
-                'Status Kehadiran',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                initialValue: selectedStatus,
-                decoration: InputDecoration(
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
+              // Interactive Status Selector Pills
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.grey.shade200),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.02),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
-                items: const [
-                  DropdownMenuItem(value: 'hadir', child: Text('Hadir')),
-                  DropdownMenuItem(value: 'sakit', child: Text('Sakit')),
-                  DropdownMenuItem(value: 'izin', child: Text('Izin')),
-                  DropdownMenuItem(value: 'alfa', child: Text('Alpha')),
-                  DropdownMenuItem(
-                    value: 'terlambat',
-                    child: Text('Terlambat'),
-                  ),
-                ],
-                onChanged: (val) {
-                  if (val != null) {
-                    setState(() => selectedStatus = val);
-                  }
-                },
-              ),
-              const SizedBox(height: 24),
+                child: StatusSelectorPills(
+                  selectedStatus: selectedStatus,
+                  onStatusChanged: (newStatus) {
+                    setState(() => selectedStatus = newStatus);
+                  },
+                ),
+              )
+                  .animate()
+                  .fadeIn(delay: 150.ms, duration: 400.ms)
+                  .slideY(begin: 0.1, end: 0),
 
-              // Upload Section (Conditional)
-              AnimatedOpacity(
-                opacity: isButuhSurat ? 1.0 : 0.5,
+              const SizedBox(height: 20),
+
+              // Letter Attachment Section (with smooth animation)
+              AnimatedCrossFade(
                 duration: const Duration(milliseconds: 300),
-                child: IgnorePointer(
-                  ignoring: !isButuhSurat,
+                crossFadeState: isButuhSurat
+                    ? CrossFadeState.showFirst
+                    : CrossFadeState.showSecond,
+                firstChild: Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: const Color(0xFF3B82F6).withValues(alpha: 0.4),
+                      width: 1.5,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.blue.withValues(alpha: 0.05),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Lampiran Surat (Opsional)',
-                        style: TextStyle(fontWeight: FontWeight.bold),
+                      const Row(
+                        children: [
+                          Icon(Icons.attachment_rounded, color: Color(0xFF2563EB), size: 20),
+                          SizedBox(width: 8),
+                          Text(
+                            'Lampiran Surat Dokter / Izin',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                              color: Color(0xFF1E293B),
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Wajib/disarankan melampirkan foto surat dokter atau surat dari orang tua.',
+                        style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                      ),
+                      const SizedBox(height: 16),
 
                       // Preview
                       if (logic.selectedFile != null)
                         _buildFilePreview(logic.selectedFile!)
-                      else if (widget.suratUrl != null &&
-                          widget.suratUrl!.isNotEmpty)
+                      else if (widget.suratUrl != null && widget.suratUrl!.isNotEmpty)
                         _buildUrlPreview(widget.suratUrl!)
                       else
                         _buildUploadPlaceholder(),
 
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 14),
 
                       // Action Buttons
                       Row(
                         children: [
                           Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: () =>
-                                  logic.pickImage(ImageSource.camera),
-                              icon: const Icon(Icons.camera_alt),
-                              label: const Text('Kamera'),
+                            child: BouncingWidget(
+                              onTap: () => logic.pickImage(ImageSource.camera),
+                              child: Container(
+                                height: 44,
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.shade50,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: Colors.blue.shade200),
+                                ),
+                                child: const Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.camera_alt_rounded, size: 18, color: Color(0xFF2563EB)),
+                                    SizedBox(width: 8),
+                                    Text(
+                                      'Ambil Foto',
+                                      style: TextStyle(
+                                        color: Color(0xFF2563EB),
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: () =>
-                                  logic.pickImage(ImageSource.gallery),
-                              icon: const Icon(Icons.photo_library),
-                              label: const Text('Galeri'),
+                            child: BouncingWidget(
+                              onTap: () => logic.pickImage(ImageSource.gallery),
+                              child: Container(
+                                height: 44,
+                                decoration: BoxDecoration(
+                                  color: Colors.purple.shade50,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: Colors.purple.shade200),
+                                ),
+                                child: const Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.photo_library_rounded, size: 18, color: Color(0xFF8B5CF6)),
+                                    SizedBox(width: 8),
+                                    Text(
+                                      'Pilih Galeri',
+                                      style: TextStyle(
+                                        color: Color(0xFF8B5CF6),
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
                           ),
                         ],
@@ -181,62 +258,111 @@ class _EditSiswaFormState extends State<_EditSiswaForm> {
                     ],
                   ),
                 ),
+                secondChild: const SizedBox.shrink(),
               ),
 
-              const SizedBox(height: 40),
+              const SizedBox(height: 32),
 
-              // Save Button
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue[700],
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  onPressed: logic.isLoading
-                      ? null
-                      : () async {
-                          final success = await logic.submitAbsensi(
-                            siswaId: widget.siswaId,
-                            tanggal: widget.tanggal,
-                            status: selectedStatus,
-                            oldSuratUrl: widget.suratUrl,
+              // Bouncy Save Button
+              BouncingWidget(
+                onTap: logic.isLoading
+                    ? null
+                    : () async {
+                        final messenger = ScaffoldMessenger.of(context);
+                        final navigator = Navigator.of(context);
+                        HapticFeedback.mediumImpact();
+
+                        final success = await logic.submitAbsensi(
+                          siswaId: widget.siswaId,
+                          tanggal: widget.tanggal,
+                          status: selectedStatus,
+                          oldSuratUrl: widget.suratUrl,
+                        );
+
+                        if (success) {
+                          HapticFeedback.heavyImpact();
+                          messenger.showSnackBar(
+                            SnackBar(
+                              content: const Row(
+                                children: [
+                                  Icon(Icons.check_circle_rounded, color: Colors.white),
+                                  SizedBox(width: 10),
+                                  Text('Perubahan presensi berhasil disimpan!'),
+                                ],
+                              ),
+                              backgroundColor: const Color(0xFF10B981),
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
                           );
-
-                          if (!mounted) return;
-
-                          if (success) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Berhasil disimpan!'),
-                                backgroundColor: Colors.green,
+                          navigator.pop(true);
+                        } else {
+                          messenger.showSnackBar(
+                            SnackBar(
+                              content: const Text('Gagal menyimpan perubahan.'),
+                              backgroundColor: const Color(0xFFEF4444),
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
                               ),
-                            );
-                            Navigator.pop(context, true);
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Gagal menyimpan data.'),
-                                backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      },
+                child: Container(
+                  width: double.infinity,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: logic.isLoading
+                          ? [Colors.grey.shade400, Colors.grey.shade500]
+                          : [const Color(0xFF1D4ED8), const Color(0xFF2563EB)],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: logic.isLoading
+                        ? null
+                        : [
+                            BoxShadow(
+                              color: const Color(0xFF2563EB).withValues(alpha: 0.4),
+                              blurRadius: 16,
+                              offset: const Offset(0, 6),
+                            ),
+                          ],
+                  ),
+                  child: Center(
+                    child: logic.isLoading
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2.5,
+                            ),
+                          )
+                        : const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.save_rounded, color: Colors.white, size: 20),
+                              SizedBox(width: 8),
+                              Text(
+                                'SIMPAN PERUBAHAN',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                  letterSpacing: 0.6,
+                                ),
                               ),
-                            );
-                          }
-                        },
-                  child: logic.isLoading
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text(
-                          'SIMPAN PERUBAHAN',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
+                            ],
                           ),
-                        ),
+                  ),
                 ),
               ),
+              const SizedBox(height: 20),
             ],
           ),
         ),
@@ -244,55 +370,139 @@ class _EditSiswaFormState extends State<_EditSiswaForm> {
     );
   }
 
-  Widget _buildInfoCard() {
-    final tglStr = widget.tanggal.toIso8601String().split('T')[0];
+  Widget _buildStudentHeaderCard() {
+    final tglStr = DateFormat('EEEE, d MMMM yyyy', 'id_ID').format(widget.tanggal);
+    final initial = widget.nama.isNotEmpty ? widget.nama[0].toUpperCase() : '?';
+
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.blue[50],
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.blue.shade100),
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFF1E3A8A),
+            Color(0xFF2563EB),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF2563EB).withValues(alpha: 0.25),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
-      child: Column(
+      child: Row(
         children: [
-          _infoRow('Nama Siswa', widget.nama),
-          const Divider(),
-          _infoRow('Nomor Absen', widget.no),
-          const Divider(),
-          _infoRow('Tanggal Absensi', tglStr),
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white38, width: 1.5),
+            ),
+            child: Center(
+              child: Text(
+                initial,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.nama,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        'Absen #${widget.no}',
+                        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        tglStr,
+                        style: const TextStyle(color: Colors.white70, fontSize: 11),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _infoRow(String label, String value) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  Widget _buildFilePreview(File file) {
+    return Stack(
       children: [
-        Text(label, style: const TextStyle(color: Colors.grey)),
-        Text(
-          value,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Image.file(
+            file,
+            height: 200,
+            width: double.infinity,
+            fit: BoxFit.cover,
+          ),
+        ),
+        Positioned(
+          top: 8,
+          right: 8,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.65),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.check_circle, size: 14, color: Color(0xFF10B981)),
+                SizedBox(width: 4),
+                Text(
+                  'Foto Baru',
+                  style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildFilePreview(File file) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
-      child: Image.file(
-        file,
-        height: 200,
-        width: double.infinity,
-        fit: BoxFit.cover,
-      ),
-    );
-  }
-
   Widget _buildUrlPreview(String url) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(12),
       child: Image.network(
         url,
         height: 200,
@@ -300,8 +510,8 @@ class _EditSiswaFormState extends State<_EditSiswaForm> {
         fit: BoxFit.cover,
         errorBuilder: (context, error, stackTrace) {
           return Container(
-            height: 200,
-            color: Colors.grey[200],
+            height: 180,
+            color: Colors.grey.shade100,
             alignment: Alignment.center,
             child: const Text(
               'Gagal memuat gambar',
@@ -315,11 +525,11 @@ class _EditSiswaFormState extends State<_EditSiswaForm> {
 
   Widget _buildUploadPlaceholder() {
     return Container(
-      height: 150,
+      height: 140,
       width: double.infinity,
       decoration: BoxDecoration(
-        color: Colors.grey[100],
-        borderRadius: BorderRadius.circular(8),
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: Colors.grey.shade300,
           style: BorderStyle.solid,
@@ -328,9 +538,12 @@ class _EditSiswaFormState extends State<_EditSiswaForm> {
       child: const Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.cloud_upload_outlined, size: 40, color: Colors.grey),
+          Icon(Icons.cloud_upload_outlined, size: 40, color: Color(0xFF94A3B8)),
           SizedBox(height: 8),
-          Text('Belum ada lampiran', style: TextStyle(color: Colors.grey)),
+          Text(
+            'Belum ada lampiran surat',
+            style: TextStyle(color: Color(0xFF64748B), fontSize: 13, fontWeight: FontWeight.w500),
+          ),
         ],
       ),
     );

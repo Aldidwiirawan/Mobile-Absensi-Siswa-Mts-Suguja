@@ -5,7 +5,7 @@ import '../../core/constants.dart';
 import '../../data/models/models.dart';
 import '../../data/repositories/repositories.dart';
 
-/// Logic class for Class (Kelas) screen using ChangeNotifier
+/// Logic class for Class (Kelas) screen using ChangeNotifier with search & status filter
 class KelasLogic extends ChangeNotifier {
   final SiswaRepository _siswaRepository = SiswaRepository();
 
@@ -15,6 +15,9 @@ class KelasLogic extends ChangeNotifier {
 
   bool isLoading = true;
   String errorMessage = '';
+
+  // Filter State
+  String selectedFilter = 'all'; // 'all', 'hadir', 'terlambat', 'sakit_izin', 'alfa', 'belum'
 
   // Search State
   final TextEditingController searchController = TextEditingController();
@@ -29,13 +32,13 @@ class KelasLogic extends ChangeNotifier {
     currentClassName = namaKelas;
     fetchData();
     _startAutoRefresh();
-    searchController.addListener(_onSearchChanged);
+    searchController.addListener(_applyFilters);
   }
 
   @override
   void dispose() {
     _autoRefreshTimer?.cancel();
-    searchController.removeListener(_onSearchChanged);
+    searchController.removeListener(_applyFilters);
     searchController.dispose();
     super.dispose();
   }
@@ -47,17 +50,52 @@ class KelasLogic extends ChangeNotifier {
     );
   }
 
-  void _onSearchChanged() {
-    final query = searchController.text.toLowerCase();
-    if (query.isEmpty) {
-      filteredList = List.from(_originalList);
-    } else {
-      filteredList = _originalList.where((s) {
-        return s.nama.toLowerCase().contains(query);
-      }).toList();
-    }
+  void setFilter(String filter) {
+    selectedFilter = filter;
+    _applyFilters();
+  }
+
+  void _applyFilters() {
+    final query = searchController.text.toLowerCase().trim();
+
+    filteredList = _originalList.where((s) {
+      // 1. Check search query
+      final matchesQuery = query.isEmpty || s.nama.toLowerCase().contains(query);
+      if (!matchesQuery) return false;
+
+      // 2. Check status filter
+      if (selectedFilter == 'all') return true;
+
+      final status = s.statusAbsensi?.toLowerCase();
+      if (selectedFilter == 'hadir') {
+        return status == 'hadir' || status == 'pulang';
+      } else if (selectedFilter == 'terlambat') {
+        return status == 'terlambat';
+      } else if (selectedFilter == 'sakit_izin') {
+        return status == 'sakit' || status == 'izin';
+      } else if (selectedFilter == 'alfa') {
+        return status == 'alfa';
+      } else if (selectedFilter == 'belum') {
+        return status == null;
+      }
+      return true;
+    }).toList();
+
     notifyListeners();
   }
+
+  // Count Getters for quick badges
+  int get totalCount => _originalList.length;
+  int get hadirCount => _originalList
+      .where((s) => s.statusAbsensi == 'hadir' || s.statusAbsensi == 'pulang')
+      .length;
+  int get terlambatCount =>
+      _originalList.where((s) => s.statusAbsensi == 'terlambat').length;
+  int get sakitIzinCount => _originalList
+      .where((s) => s.statusAbsensi == 'sakit' || s.statusAbsensi == 'izin')
+      .length;
+  int get alfaCount =>
+      _originalList.where((s) => s.statusAbsensi == 'alfa').length;
 
   Future<void> fetchData({bool isBackground = false}) async {
     if (!isBackground) {
@@ -79,7 +117,7 @@ class KelasLogic extends ChangeNotifier {
       }
 
       _originalList = dataList;
-      _onSearchChanged(); // Re-apply search filter
+      _applyFilters();
     } catch (e) {
       if (!isBackground) {
         errorMessage = 'Gagal memuat data: $e';
@@ -96,11 +134,19 @@ class KelasLogic extends ChangeNotifier {
   /// Get status display text
   String getStatusDisplay(SiswaWithAbsensi item) {
     if (item.statusAbsensi == null) return 'Belum Absen';
+    final st = item.statusAbsensi!.toLowerCase();
+    if (st == 'hadir') return 'Hadir';
+    if (st == 'terlambat') return 'Terlambat';
+    if (st == 'sakit') return 'Sakit';
+    if (st == 'izin') return 'Izin';
+    if (st == 'alfa') return 'Alfa';
+    if (st == 'pulang') return 'Pulang';
     return item.statusAbsensi!.toUpperCase();
   }
 
   /// Get status color
   Color getStatusColor(SiswaWithAbsensi item) {
+    if (item.statusAbsensi == null) return const Color(0xFF94A3B8);
     return StatusColors.getAttendanceColor(item.statusAbsensi);
   }
 }

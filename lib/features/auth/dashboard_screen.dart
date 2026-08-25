@@ -10,6 +10,7 @@ import '../../data/models/models.dart';
 import 'dashboard_logic.dart';
 import 'form_login.dart';
 import '../kelas/kelas_screen.dart';
+import '../persetujuan_surat/persetujuan_surat_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -180,7 +181,84 @@ class _DashboardViewState extends State<_DashboardView> {
                       .fadeIn(duration: 400.ms)
                       .slideY(begin: 0.1, end: 0),
 
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
+
+                  // Persetujuan Izin / Sakit Quick Banner
+                  BouncingWidget(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const PersetujuanSuratScreen(),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 14),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.03),
+                            blurRadius: 10,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFF8B5CF6), Color(0xFF6366F1)],
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(
+                              Icons.fact_check_rounded,
+                              color: Colors.white,
+                              size: 22,
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Persetujuan Izin / Sakit',
+                                  style: TextStyle(
+                                    fontSize: 14.5,
+                                    fontWeight: FontWeight.w800,
+                                    color: Color(0xFF1E293B),
+                                  ),
+                                ),
+                                SizedBox(height: 2),
+                                Text(
+                                  'Tinjau permohonan surat izin/sakit siswa',
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    color: Color(0xFF64748B),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(
+                            Icons.arrow_forward_ios_rounded,
+                            size: 15,
+                            color: Color(0xFF94A3B8),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ).animate().fadeIn(duration: 450.ms),
+
+                  const SizedBox(height: 20),
 
                   // Section Title
                   Row(
@@ -280,7 +358,7 @@ class _DashboardViewState extends State<_DashboardView> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  guruName != null ? 'Ustadz/ah $guruName' : 'Ustadz/Ustadzah',
+                  guruName ?? 'Bapak/Ibu Guru',
                   style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w800,
@@ -396,6 +474,23 @@ class _DashboardViewState extends State<_DashboardView> {
             selected: _selectedKelas == null,
             selectedTileColor: Colors.blue.shade50,
             onTap: _onHomeSelected,
+          ),
+          ListTile(
+            leading: const Icon(Icons.mark_email_read_rounded,
+                color: Color(0xFF8B5CF6)),
+            title: const Text(
+              'Persetujuan Izin / Sakit',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
+            onTap: () {
+              Navigator.pop(context); // close drawer
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const PersetujuanSuratScreen(),
+                ),
+              );
+            },
           ),
           const Divider(),
           const Padding(

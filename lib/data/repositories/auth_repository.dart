@@ -116,4 +116,119 @@ class AuthRepository {
 
   /// Get current user ID
   String? get currentUserId => supabaseService.currentUserId;
+
+  /// Update teacher personal info (nama, no_hp, foto_url)
+  Future<void> updateProfile({
+    required String nama,
+    String? noHp,
+    String? fotoUrl,
+  }) async {
+    final userId = supabaseService.currentUserId;
+    if (userId == null) {
+      throw AuthException(message: 'User tidak terautentikasi');
+    }
+
+    try {
+      final updateData = <String, dynamic>{
+        GuruColumns.nama: nama.trim(),
+        if (noHp != null) GuruColumns.noHp: noHp.trim(),
+        if (fotoUrl != null) ...{
+          GuruColumns.fotoUrl: fotoUrl,
+          GuruColumns.avatarUrl: fotoUrl,
+        },
+        GuruColumns.updatedAt: DateTime.now().toIso8601String(),
+      };
+
+      await _client
+          .from(DbTables.guru)
+          .update(updateData)
+          .eq(GuruColumns.id, userId);
+    } on supabase.PostgrestException catch (e) {
+      throw RepositoryException(
+        message: 'Gagal memperbarui profil: ${e.message}',
+        originalException: e,
+      );
+    }
+  }
+
+  /// Upload avatar image to Supabase Storage
+  Future<String?> uploadAvatar(dynamic file) async {
+    final userId = supabaseService.currentUserId;
+    if (userId == null) return null;
+
+    try {
+      final ext = file.path.split('.').last;
+      final fileName =
+          'avatar_${userId}_${DateTime.now().millisecondsSinceEpoch}.$ext';
+      final filePath = 'avatars/$fileName';
+
+      // Try 'avatars' bucket first, fallback to 'surat_keterangan'
+      try {
+        await _client.storage.from('avatars').upload(
+              filePath,
+              file,
+              fileOptions: const supabase.FileOptions(upsert: true),
+            );
+        return _client.storage.from('avatars').getPublicUrl(filePath);
+      } catch (e) {
+        debugPrint(
+            '[AuthRepo] Avatars bucket error, falling back to surat_keterangan: $e');
+        await _client.storage.from(StorageBuckets.suratKeterangan).upload(
+              filePath,
+              file,
+              fileOptions: const supabase.FileOptions(upsert: true),
+            );
+        return _client.storage
+            .from(StorageBuckets.suratKeterangan)
+            .getPublicUrl(filePath);
+      }
+    } catch (e) {
+      debugPrint('[AuthRepo] Error uploadAvatar: $e');
+      throw RepositoryException(message: 'Gagal mengunggah foto profil: $e');
+    }
+  }
+
+  /// Update teacher email in Supabase Auth and database table
+  Future<void> updateEmail(String newEmail) async {
+    final userId = supabaseService.currentUserId;
+    if (userId == null) {
+      throw AuthException(message: 'User tidak terautentikasi');
+    }
+
+    try {
+      final attrs = supabase.UserAttributes(email: newEmail.trim());
+      await _client.auth.updateUser(attrs);
+
+      try {
+        await _client
+            .from(DbTables.guru)
+            .update({
+              GuruColumns.email: newEmail.trim(),
+              GuruColumns.updatedAt: DateTime.now().toIso8601String(),
+            })
+            .eq(GuruColumns.id, userId);
+      } catch (e) {
+        debugPrint(
+            '[AuthRepo] Notice: could not update email column in guru table: $e');
+      }
+    } on supabase.AuthException catch (e) {
+      throw AuthException(
+        message: 'Gagal memperbarui email: ${e.message}',
+        originalException: e,
+      );
+    }
+  }
+
+  /// Update teacher password in Supabase Auth
+  Future<void> updatePassword(String newPassword) async {
+    try {
+      final attrs = supabase.UserAttributes(password: newPassword);
+      await _client.auth.updateUser(attrs);
+    } on supabase.AuthException catch (e) {
+      throw AuthException(
+        message: 'Gagal mengubah password: ${e.message}',
+        originalException: e,
+      );
+    }
+  }
 }

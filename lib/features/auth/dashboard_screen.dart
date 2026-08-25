@@ -11,6 +11,7 @@ import 'dashboard_logic.dart';
 import 'form_login.dart';
 import '../kelas/kelas_screen.dart';
 import '../persetujuan_surat/persetujuan_surat_screen.dart';
+import '../profil/profil_guru_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -188,11 +189,33 @@ class _DashboardViewState extends State<_DashboardView> {
             ],
           ),
           IconButton(
+            icon: CircleAvatar(
+              radius: 14,
+              backgroundColor: const Color(0xFFEFF6FF),
+              backgroundImage: logic.guruProfile?.displayAvatarUrl != null
+                  ? NetworkImage(logic.guruProfile!.displayAvatarUrl!)
+                  : null,
+              child: logic.guruProfile?.displayAvatarUrl == null
+                  ? const Icon(Icons.person_rounded,
+                      size: 16, color: Color(0xFF2563EB))
+                  : null,
+            ),
+            tooltip: 'Profil Saya',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const ProfilGuruScreen(),
+                ),
+              ).then((_) => logic.loadDashboard());
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.refresh_rounded),
             tooltip: 'Perbarui Data',
             onPressed: logic.loadDashboard,
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 4),
         ],
       ),
       drawer: _buildDrawer(context, logic),
@@ -506,70 +529,89 @@ class _DashboardViewState extends State<_DashboardView> {
       backgroundColor: Colors.white,
       child: Column(
         children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(20, 50, 20, 24),
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Color(0xFF1E3A8A),
-                  Color(0xFF2563EB),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+          // Header Card (Clickable to Profil)
+          InkWell(
+            onTap: () {
+              Navigator.pop(context); // close drawer
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const ProfilGuruScreen(),
+                ),
+              ).then((_) => logic.loadDashboard());
+            },
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(20, 50, 20, 24),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Color(0xFF1E3A8A),
+                    Color(0xFF2563EB),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
               ),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(2),
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                    ),
+                    child: CircleAvatar(
+                      radius: 28,
+                      backgroundColor: Colors.blue.shade50,
+                      backgroundImage: logic.guruProfile?.displayAvatarUrl != null
+                          ? NetworkImage(logic.guruProfile!.displayAvatarUrl!)
+                          : null,
+                      child: logic.guruProfile?.displayAvatarUrl == null
+                          ? const Icon(Icons.person_rounded,
+                              size: 32, color: Color(0xFF2563EB))
+                          : null,
+                    ),
                   ),
-                  child: CircleAvatar(
-                    radius: 28,
-                    backgroundColor: Colors.blue.shade50,
-                    backgroundImage: logic.guruProfile?.displayAvatarUrl != null
-                        ? NetworkImage(logic.guruProfile!.displayAvatarUrl!)
-                        : null,
-                    child: logic.guruProfile?.displayAvatarUrl == null
-                        ? const Icon(Icons.person_rounded, size: 32, color: Color(0xFF2563EB))
-                        : null,
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        logic.guruProfile?.nama ?? 'Guru Pengampu',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          logic.guruProfile?.nama ?? 'Guru Pengampu',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        AppConstants.schoolName,
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12,
+                        const SizedBox(height: 2),
+                        Text(
+                          AppConstants.schoolName,
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                  const Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    color: Colors.white70,
+                    size: 14,
+                  ),
+                ],
+              ),
             ),
           ),
           ListTile(
-            leading: const Icon(Icons.dashboard_rounded, color: Color(0xFF2563EB)),
+            leading:
+                const Icon(Icons.dashboard_rounded, color: Color(0xFF2563EB)),
             title: const Text(
               'Dashboard Utama',
               style: TextStyle(fontWeight: FontWeight.w600),
@@ -577,6 +619,23 @@ class _DashboardViewState extends State<_DashboardView> {
             selected: _selectedKelas == null,
             selectedTileColor: Colors.blue.shade50,
             onTap: _onHomeSelected,
+          ),
+          ListTile(
+            leading: const Icon(Icons.account_circle_rounded,
+                color: Color(0xFF0284C7)),
+            title: const Text(
+              'Profil & Akun Saya',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
+            onTap: () {
+              Navigator.pop(context); // close drawer
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const ProfilGuruScreen(),
+                ),
+              ).then((_) => logic.loadDashboard());
+            },
           ),
           ListTile(
             leading: const Icon(Icons.mark_email_read_rounded,

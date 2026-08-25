@@ -37,6 +37,7 @@ dependencies:
   supabase_flutter: ^2.5.6
   flutter_dotenv: ^5.2.1
   provider: ^6.1.5+1
+  shared_preferences: ^2.5.3
 
   # UI & Icons
   cupertino_icons: ^1.0.8
@@ -54,6 +55,9 @@ dependencies:
 
   # Localization & Formatting
   intl: ^0.20.2
+
+  # URL Launcher
+  url_launcher: ^6.3.1
 
   # HTTP (if needed for external APIs)
   http: ^1.2.0

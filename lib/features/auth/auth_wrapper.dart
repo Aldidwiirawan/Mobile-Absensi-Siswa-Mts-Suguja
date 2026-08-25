@@ -4,6 +4,8 @@ import '../../core/constants.dart';
 import '../../core/exceptions.dart';
 import '../../data/repositories/repositories.dart';
 import '../../data/services/onesignal_service.dart';
+import '../../data/services/wali_storage_service.dart';
+import '../wali/wali_dashboard_screen.dart';
 import 'form_login.dart';
 import 'dashboard_screen.dart';
 import '../scanner/scan_dashboard_screen.dart';
@@ -33,7 +35,16 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
     debugPrint('--- [DEBUG] MULAI PENGECEKAN AUTH ---');
 
-    // Check if user has valid session
+    // 1. Check if Wali Murid has active local session
+    final hasWaliSession = await waliStorageService.hasActiveSession();
+    if (hasWaliSession) {
+      debugPrint('--- [DEBUG] Sesi Wali Murid Ditemukan. Mengarahkan ke WaliDashboard. ---');
+      if (!mounted) return;
+      _navigateTo(const WaliDashboardScreen());
+      return;
+    }
+
+    // 2. Check if user has valid Supabase session
     if (!_authRepository.hasValidSession) {
       debugPrint('--- [DEBUG] Session Kosong. Mengarahkan ke Login. ---');
       if (!mounted) return;

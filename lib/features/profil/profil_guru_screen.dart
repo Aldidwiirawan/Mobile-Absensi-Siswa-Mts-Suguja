@@ -404,9 +404,6 @@ class _ProfilGuruScreenState extends State<ProfilGuruScreen> {
     }
 
     final nama = _guruProfile?.nama ?? 'Bapak/Ibu Guru';
-    final nip = _guruProfile?.nip.isNotEmpty == true
-        ? 'NIP. ${_guruProfile!.nip}'
-        : 'NIP belum diatur';
     final roleName = _guruProfile?.role.displayName ?? 'Guru Pengampu';
 
     return Container(
@@ -490,15 +487,6 @@ class _ProfilGuruScreenState extends State<ProfilGuruScreen> {
             ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 4),
-          Text(
-            nip,
-            style: const TextStyle(
-              fontSize: 12.5,
-              color: Colors.white70,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
           const SizedBox(height: 10),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -559,23 +547,6 @@ class _ProfilGuruScreenState extends State<ProfilGuruScreen> {
             labelText: 'Nomor WhatsApp / HP',
             hintText: 'Contoh: 081234567890',
             prefixIcon: Icons.phone_android_rounded,
-          ),
-        ),
-        const SizedBox(height: 14),
-
-        // NIP (Read-Only)
-        TextFormField(
-          initialValue: _guruProfile?.nip ?? '-',
-          readOnly: true,
-          decoration: _inputDecoration(
-            labelText: 'Nomor Induk Pegawai (NIP)',
-            hintText: 'NIP terdaftar',
-            prefixIcon: Icons.fingerprint_rounded,
-            suffixIcon: const Tooltip(
-              message: 'NIP dikelola oleh Administrator',
-              child: Icon(Icons.lock_outline_rounded,
-                  size: 18, color: Color(0xFF94A3B8)),
-            ),
           ),
         ),
       ],

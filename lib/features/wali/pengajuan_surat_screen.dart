@@ -116,7 +116,14 @@ class _PengajuanSuratScreenState extends State<PengajuanSuratScreen>
             children: [
               Icon(Icons.info_outline_rounded, color: Color(0xFFF59E0B)),
               SizedBox(width: 8),
-              Text('Surat Dokter / Bukti', style: TextStyle(fontSize: 16)),
+              Expanded(
+                child: Text(
+                  'Surat Dokter / Bukti',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
             ],
           ),
           content: const Text(

@@ -85,9 +85,20 @@ class _PersetujuanSuratScreenState extends State<PersetujuanSuratScreen>
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
           children: [
-            const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981)),
+            const Icon(Icons.check_circle_rounded,
+                color: Color(0xFF10B981), size: 22),
             const SizedBox(width: 8),
-            Text('Setujui Surat ${item.jenis.toUpperCase()}'),
+            Expanded(
+              child: Text(
+                'Setujui Surat ${item.jenis.toUpperCase()}',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
         content: Column(
@@ -168,9 +179,19 @@ class _PersetujuanSuratScreenState extends State<PersetujuanSuratScreen>
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Row(
           children: [
-            Icon(Icons.cancel_rounded, color: Color(0xFFEF4444)),
+            Icon(Icons.cancel_rounded, color: Color(0xFFEF4444), size: 22),
             SizedBox(width: 8),
-            Text('Tolak Pengajuan Surat'),
+            Expanded(
+              child: Text(
+                'Tolak Pengajuan Surat',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
         content: Column(

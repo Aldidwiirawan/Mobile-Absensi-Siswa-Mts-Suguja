@@ -129,24 +129,88 @@ class AuthRepository {
     }
 
     try {
-      final updateData = <String, dynamic>{
-        GuruColumns.nama: nama.trim(),
-        if (noHp != null) GuruColumns.noHp: noHp.trim(),
-        if (fotoUrl != null) ...{
-          GuruColumns.fotoUrl: fotoUrl,
-          GuruColumns.avatarUrl: fotoUrl,
+      // Attempt 1: Try with all fields including foto_url & avatar_url
+      final fullData = <String, dynamic>{
+        'nama': nama.trim(),
+        if (noHp != null && noHp.isNotEmpty) 'no_hp': noHp.trim(),
+        if (fotoUrl != null && fotoUrl.isNotEmpty) ...{
+          'foto_url': fotoUrl,
+          'avatar_url': fotoUrl,
         },
-        GuruColumns.updatedAt: DateTime.now().toIso8601String(),
       };
 
+      try {
+        await _client
+            .from(DbTables.guru)
+            .update(fullData)
+            .eq(GuruColumns.id, userId);
+        return;
+      } catch (e) {
+        debugPrint('[AuthRepo] Attempt 1 with foto_url & avatar_url failed ($e), trying avatar_url only...');
+      }
+
+      // Attempt 2: Try avatar_url only
+      if (fotoUrl != null && fotoUrl.isNotEmpty) {
+        final avatarOnlyData = <String, dynamic>{
+          'nama': nama.trim(),
+          if (noHp != null && noHp.isNotEmpty) 'no_hp': noHp.trim(),
+          'avatar_url': fotoUrl,
+        };
+        try {
+          await _client
+              .from(DbTables.guru)
+              .update(avatarOnlyData)
+              .eq(GuruColumns.id, userId);
+          return;
+        } catch (e) {
+          debugPrint('[AuthRepo] Attempt 2 with avatar_url failed ($e), trying foto_url only...');
+        }
+
+        // Attempt 3: Try foto_url only
+        final fotoOnlyData = <String, dynamic>{
+          'nama': nama.trim(),
+          if (noHp != null && noHp.isNotEmpty) 'no_hp': noHp.trim(),
+          'foto_url': fotoUrl,
+        };
+        try {
+          await _client
+              .from(DbTables.guru)
+              .update(fotoOnlyData)
+              .eq(GuruColumns.id, userId);
+          return;
+        } catch (e) {
+          debugPrint('[AuthRepo] Attempt 3 with foto_url failed ($e), trying without foto...');
+        }
+      }
+
+      // Attempt 4: Update nama & no_hp without photo columns
+      final nameAndPhone = <String, dynamic>{
+        'nama': nama.trim(),
+        if (noHp != null && noHp.isNotEmpty) 'no_hp': noHp.trim(),
+      };
+      try {
+        await _client
+            .from(DbTables.guru)
+            .update(nameAndPhone)
+            .eq(GuruColumns.id, userId);
+        return;
+      } catch (e) {
+        debugPrint('[AuthRepo] Attempt 4 with no_hp failed ($e), trying nama only...');
+      }
+
+      // Attempt 5: Just nama
       await _client
           .from(DbTables.guru)
-          .update(updateData)
+          .update({'nama': nama.trim()})
           .eq(GuruColumns.id, userId);
     } on supabase.PostgrestException catch (e) {
       throw RepositoryException(
         message: 'Gagal memperbarui profil: ${e.message}',
         originalException: e,
+      );
+    } catch (e) {
+      throw RepositoryException(
+        message: 'Gagal memperbarui profil: $e',
       );
     }
   }

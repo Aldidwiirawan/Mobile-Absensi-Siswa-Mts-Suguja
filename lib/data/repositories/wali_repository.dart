@@ -51,64 +51,20 @@ class WaliRepository {
 
       debugPrint('--- [WaliRepo Login] rawKelasId: $rawKelasId, parsed: $kelasId ---');
 
-      // 2. Fetch Class Details & Wali Kelas
-      String namaKelas = 'Belum Ditentukan';
-      String? waliKelasNama;
-      String? waliKelasNoHp;
-
-      if (kelasId != null) {
-        try {
-          final kelasRes = await _client
-              .from(DbTables.kelas)
-              .select()
-              .eq(KelasColumns.id, kelasId)
-              .maybeSingle();
-
-          debugPrint('--- [WaliRepo Login] Hasil Query Kelas ($kelasId): $kelasRes ---');
-
-          if (kelasRes != null) {
-            namaKelas = kelasRes['nama_kelas'] as String? ??
-                kelasRes['nama'] as String? ??
-                kelasRes['tingkat'] as String? ??
-                'Kelas $kelasId';
-
-            final rawWaliId = kelasRes['wali_kelas_id'] ?? kelasRes['wali_id'];
-            final int? waliKelasId = rawWaliId is int
-                ? rawWaliId
-                : (rawWaliId != null ? int.tryParse(rawWaliId.toString()) : null);
-
-            if (waliKelasId != null) {
-              final guruRes = await _client
-                  .from(DbTables.guru)
-                  .select()
-                  .eq('id', waliKelasId)
-                  .maybeSingle();
-
-              debugPrint('--- [WaliRepo Login] Hasil Query Guru Wali ($waliKelasId): $guruRes ---');
-
-              if (guruRes != null) {
-                waliKelasNama = guruRes['nama'] as String?;
-                waliKelasNoHp = guruRes['no_hp'] as String?;
-              }
-            }
-          }
-        } catch (e) {
-          debugPrint('--- [WaliRepo Login] Gagal memuat data kelas/wali kelas: $e ---');
-        }
-      }
-
-      if (namaKelas == 'Belum Ditentukan' && siswaRes['nama_kelas'] != null) {
-        namaKelas = siswaRes['nama_kelas'].toString();
-      }
+      // 2. Fetch Class Details & Wali Kelas with robust UUID/Int and fallback resolution
+      final waliInfo = await _resolveWaliKelasInfo(
+        kelasId,
+        siswaRes['nama_kelas']?.toString(),
+      );
 
       return ChildProfile(
         id: siswaId,
         nis: cleanNis,
         nama: namaSiswa,
         kelasId: kelasId,
-        namaKelas: namaKelas,
-        waliKelasNama: waliKelasNama,
-        waliKelasNoHp: waliKelasNoHp,
+        namaKelas: waliInfo.namaKelas,
+        waliKelasNama: waliInfo.waliKelasNama,
+        waliKelasNoHp: waliInfo.waliKelasNoHp,
       );
     } on PostgrestException catch (e) {
       throw RepositoryException(
@@ -142,66 +98,106 @@ class WaliRepository {
           ? rawKelasId
           : (rawKelasId != null ? int.tryParse(rawKelasId.toString()) : null);
 
-      String namaKelas = 'Belum Ditentukan';
-      String? waliKelasNama;
-      String? waliKelasNoHp;
-
-      if (kelasId != null) {
-        try {
-          final kelasRes = await _client
-              .from(DbTables.kelas)
-              .select()
-              .eq(KelasColumns.id, kelasId)
-              .maybeSingle();
-
-          debugPrint('--- [WaliRepo Refresh] Hasil Query Kelas ($kelasId): $kelasRes ---');
-
-          if (kelasRes != null) {
-            namaKelas = kelasRes['nama_kelas'] as String? ??
-                kelasRes['nama'] as String? ??
-                kelasRes['tingkat'] as String? ??
-                'Kelas $kelasId';
-
-            final rawWaliId = kelasRes['wali_kelas_id'] ?? kelasRes['wali_id'];
-            final int? waliKelasId = rawWaliId is int
-                ? rawWaliId
-                : (rawWaliId != null ? int.tryParse(rawWaliId.toString()) : null);
-
-            if (waliKelasId != null) {
-              final guruRes = await _client
-                  .from(DbTables.guru)
-                  .select()
-                  .eq('id', waliKelasId)
-                  .maybeSingle();
-
-              if (guruRes != null) {
-                waliKelasNama = guruRes['nama'] as String?;
-                waliKelasNoHp = guruRes['no_hp'] as String?;
-              }
-            }
-          }
-        } catch (e) {
-          debugPrint('--- [WaliRepo Refresh] Gagal memuat data kelas/wali kelas: $e ---');
-        }
-      }
-
-      if (namaKelas == 'Belum Ditentukan' && siswaRes['nama_kelas'] != null) {
-        namaKelas = siswaRes['nama_kelas'].toString();
-      }
+      final waliInfo = await _resolveWaliKelasInfo(
+        kelasId,
+        siswaRes['nama_kelas']?.toString(),
+      );
 
       return ChildProfile(
         id: siswaId,
         nis: cleanNis,
         nama: namaSiswa,
         kelasId: kelasId,
-        namaKelas: namaKelas,
-        waliKelasNama: waliKelasNama,
-        waliKelasNoHp: waliKelasNoHp,
+        namaKelas: waliInfo.namaKelas,
+        waliKelasNama: waliInfo.waliKelasNama,
+        waliKelasNoHp: waliInfo.waliKelasNoHp,
       );
     } catch (e) {
       debugPrint('[WaliRepo] Error getChildProfileById: $e');
       return null;
     }
+  }
+
+  /// Helper to robustly resolve class name and homeroom teacher (Wali Kelas) info
+  Future<({String namaKelas, String? waliKelasNama, String? waliKelasNoHp})>
+      _resolveWaliKelasInfo(int? kelasId, String? defaultNamaKelas) async {
+    String namaKelas = defaultNamaKelas ?? 'Belum Ditentukan';
+    String? waliKelasNama;
+    String? waliKelasNoHp;
+
+    if (kelasId != null) {
+      try {
+        final kelasRes = await _client
+            .from(DbTables.kelas)
+            .select()
+            .eq(KelasColumns.id, kelasId)
+            .maybeSingle();
+
+        debugPrint('--- [WaliRepo] Hasil Query Kelas ($kelasId): $kelasRes ---');
+
+        if (kelasRes != null) {
+          namaKelas = kelasRes['nama_kelas'] as String? ??
+              kelasRes['nama'] as String? ??
+              kelasRes['tingkat'] as String? ??
+              'Kelas $kelasId';
+
+          final rawWaliId = kelasRes['wali_kelas_id'] ?? kelasRes['wali_id'];
+
+          if (rawWaliId != null && rawWaliId.toString().isNotEmpty) {
+            try {
+              final guruRes = await _client
+                  .from(DbTables.guru)
+                  .select()
+                  .eq('id', rawWaliId)
+                  .maybeSingle();
+
+              debugPrint('--- [WaliRepo] Hasil Query Guru Wali ($rawWaliId): $guruRes ---');
+
+              if (guruRes != null) {
+                waliKelasNama = guruRes['nama'] as String?;
+                waliKelasNoHp = guruRes['no_hp'] as String? ??
+                    guruRes['no_telepon'] as String? ??
+                    guruRes['telepon'] as String?;
+              }
+            } catch (err) {
+              debugPrint('--- [WaliRepo] Gagal query guru by id $rawWaliId: $err ---');
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('--- [WaliRepo] Gagal memuat data kelas/wali kelas: $e ---');
+      }
+    }
+
+    // Fallback: If waliKelasNoHp is still null, search table guru for teacher assigned to this class name
+    if (waliKelasNoHp == null || waliKelasNoHp.isEmpty) {
+      try {
+        final allGurus = await _client.from(DbTables.guru).select();
+        for (final g in (allGurus as List)) {
+          final kDiampu = g['kelas_diampu'];
+          final gNoHp = g['no_hp'] as String? ??
+              g['no_telepon'] as String? ??
+              g['telepon'] as String?;
+
+          if (gNoHp != null && gNoHp.isNotEmpty) {
+            if (kDiampu != null && kDiampu.toString().contains(namaKelas)) {
+              waliKelasNama ??= g['nama'] as String?;
+              waliKelasNoHp = gNoHp;
+              debugPrint('--- [WaliRepo] Found wali kelas via kelas_diampu ($namaKelas): ${g['nama']} ($gNoHp) ---');
+              break;
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('--- [WaliRepo] Fallback search guru by kelas_diampu error: $e ---');
+      }
+    }
+
+    return (
+      namaKelas: namaKelas,
+      waliKelasNama: waliKelasNama,
+      waliKelasNoHp: waliKelasNoHp,
+    );
   }
 
   /// Alias for login using NIS

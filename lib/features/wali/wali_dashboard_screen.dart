@@ -206,17 +206,40 @@ class _WaliDashboardScreenState extends State<WaliDashboardScreen> {
   }
 
   Future<void> _openWhatsApp(String? phone, String namaSiswa) async {
-    if (phone == null || phone.isEmpty) {
+    String? targetPhone = phone;
+
+    // If phone is null or empty, attempt an instant live refresh
+    if ((targetPhone == null || targetPhone.isEmpty) && _activeChild != null) {
+      try {
+        final fresh =
+            await _waliRepository.getChildProfileById(_activeChild!.id);
+        if (fresh != null) {
+          await waliStorageService.saveChild(fresh, makeActive: true);
+          if (mounted) {
+            setState(() => _activeChild = fresh);
+          }
+          targetPhone = fresh.waliKelasNoHp;
+        }
+      } catch (_) {}
+    }
+
+    if (targetPhone == null || targetPhone.isEmpty) {
+      if (!mounted) return;
+      final waliName = _activeChild?.waliKelasNama;
+      final info = waliName != null && waliName.isNotEmpty
+          ? 'Nomor WhatsApp Wali Kelas ($waliName) belum tersedia.'
+          : 'Nomor WhatsApp wali kelas untuk ${_activeChild?.namaKelas ?? 'kelas ini'} belum tersedia.';
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Nomor kontak wali kelas belum tersedia.'),
+        SnackBar(
+          content: Text(info),
           behavior: SnackBarBehavior.floating,
         ),
       );
       return;
     }
 
-    var cleanPhone = phone.replaceAll(RegExp(r'[^0-9]'), '');
+    var cleanPhone = targetPhone.replaceAll(RegExp(r'[^0-9]'), '');
     if (cleanPhone.startsWith('0')) {
       cleanPhone = '62${cleanPhone.substring(1)}';
     }

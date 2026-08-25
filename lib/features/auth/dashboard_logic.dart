@@ -7,6 +7,7 @@ import '../../data/repositories/repositories.dart';
 /// Logic class for Dashboard using ChangeNotifier
 class DashboardLogic extends ChangeNotifier {
   final AuthRepository _authRepository = AuthRepository();
+  final SuratRepository _suratRepository = SuratRepository();
 
   bool isLoading = true;
   String errorMessage = '';
@@ -18,6 +19,7 @@ class DashboardLogic extends ChangeNotifier {
   // Data Dashboard
   List<ClassSummary> summaryList = [];
   double attendanceRate = 0.0;
+  int pendingSuratCount = 0;
 
   Future<void> loadDashboard() async {
     isLoading = true;
@@ -36,8 +38,14 @@ class DashboardLogic extends ChangeNotifier {
         kelasDiampu = guruProfile!.kelasDiampu!;
       }
 
-      // 2. Get Dashboard Summary via RPC
-      summaryList = await _authRepository.getDashboardSummary();
+      // 2. Get Dashboard Summary via RPC & Pending Surat count in parallel
+      final summaryFuture = _authRepository.getDashboardSummary();
+      final pendingSuratFuture = _suratRepository.getPendingSuratCount();
+
+      final results = await Future.wait([summaryFuture, pendingSuratFuture]);
+
+      summaryList = results[0] as List<ClassSummary>;
+      pendingSuratCount = results[1] as int;
 
       // Calculate Global Attendance Rate
       int totalSiswa = 0;

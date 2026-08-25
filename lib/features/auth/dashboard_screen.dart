@@ -144,6 +144,49 @@ class _DashboardViewState extends State<_DashboardView> {
         foregroundColor: const Color(0xFF0F172A),
         iconTheme: const IconThemeData(color: Color(0xFF0F172A)),
         actions: [
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.fact_check_outlined),
+                tooltip: 'Persetujuan Surat',
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const PersetujuanSuratScreen(),
+                    ),
+                  ).then((_) => logic.loadDashboard());
+                },
+              ),
+              if (logic.pendingSuratCount > 0)
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFEF4444),
+                      shape: BoxShape.circle,
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 16,
+                      minHeight: 16,
+                    ),
+                    child: Text(
+                      '${logic.pendingSuratCount}',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                        height: 1,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             tooltip: 'Perbarui Data',
@@ -191,7 +234,7 @@ class _DashboardViewState extends State<_DashboardView> {
                         MaterialPageRoute(
                           builder: (_) => const PersetujuanSuratScreen(),
                         ),
-                      );
+                      ).then((_) => logic.loadDashboard());
                     },
                     child: Container(
                       padding: const EdgeInsets.symmetric(
@@ -199,10 +242,17 @@ class _DashboardViewState extends State<_DashboardView> {
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(18),
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                        border: Border.all(
+                          color: logic.pendingSuratCount > 0
+                              ? const Color(0xFFC7D2FE)
+                              : const Color(0xFFE2E8F0),
+                          width: logic.pendingSuratCount > 0 ? 1.5 : 1,
+                        ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.03),
+                            color: logic.pendingSuratCount > 0
+                                ? const Color(0xFF6366F1).withValues(alpha: 0.08)
+                                : Colors.black.withValues(alpha: 0.03),
                             blurRadius: 10,
                             offset: const Offset(0, 2),
                           ),
@@ -210,39 +260,92 @@ class _DashboardViewState extends State<_DashboardView> {
                       ),
                       child: Row(
                         children: [
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [Color(0xFF8B5CF6), Color(0xFF6366F1)],
+                          Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [Color(0xFF8B5CF6), Color(0xFF6366F1)],
+                                  ),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Icon(
+                                  Icons.fact_check_rounded,
+                                  color: Colors.white,
+                                  size: 22,
+                                ),
                               ),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Icon(
-                              Icons.fact_check_rounded,
-                              color: Colors.white,
-                              size: 22,
-                            ),
+                              if (logic.pendingSuratCount > 0)
+                                Positioned(
+                                  top: -2,
+                                  right: -2,
+                                  child: Container(
+                                    width: 10,
+                                    height: 10,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFEF4444),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(color: Colors.white, width: 2),
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                           const SizedBox(width: 14),
-                          const Expanded(
+                          Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  'Persetujuan Izin / Sakit',
-                                  style: TextStyle(
-                                    fontSize: 14.5,
-                                    fontWeight: FontWeight.w800,
-                                    color: Color(0xFF1E293B),
-                                  ),
+                                Row(
+                                  children: [
+                                    const Flexible(
+                                      child: Text(
+                                        'Persetujuan Izin / Sakit',
+                                        style: TextStyle(
+                                          fontSize: 14.5,
+                                          fontWeight: FontWeight.w800,
+                                          color: Color(0xFF1E293B),
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    if (logic.pendingSuratCount > 0) ...[
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 7, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFEF4444),
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: Text(
+                                          '${logic.pendingSuratCount} Menunggu',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
                                 ),
-                                SizedBox(height: 2),
+                                const SizedBox(height: 2),
                                 Text(
-                                  'Tinjau permohonan surat izin/sakit siswa',
+                                  logic.pendingSuratCount > 0
+                                      ? 'Ada ${logic.pendingSuratCount} pengajuan surat butuh persetujuan Anda'
+                                      : 'Tinjau permohonan surat izin/sakit siswa',
                                   style: TextStyle(
                                     fontSize: 11.5,
-                                    color: Color(0xFF64748B),
+                                    color: logic.pendingSuratCount > 0
+                                        ? const Color(0xFF4F46E5)
+                                        : const Color(0xFF64748B),
+                                    fontWeight: logic.pendingSuratCount > 0
+                                        ? FontWeight.w700
+                                        : FontWeight.normal,
                                   ),
                                 ),
                               ],
@@ -482,6 +585,24 @@ class _DashboardViewState extends State<_DashboardView> {
               'Persetujuan Izin / Sakit',
               style: TextStyle(fontWeight: FontWeight.w600),
             ),
+            trailing: logic.pendingSuratCount > 0
+                ? Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 2.5),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEF4444),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '${logic.pendingSuratCount} Baru',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  )
+                : null,
             onTap: () {
               Navigator.pop(context); // close drawer
               Navigator.push(
@@ -489,7 +610,7 @@ class _DashboardViewState extends State<_DashboardView> {
                 MaterialPageRoute(
                   builder: (_) => const PersetujuanSuratScreen(),
                 ),
-              );
+              ).then((_) => logic.loadDashboard());
             },
           ),
           const Divider(),

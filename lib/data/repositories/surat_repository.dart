@@ -408,4 +408,18 @@ class SuratRepository {
       return null;
     }
   }
+
+  /// Get total pending requests waiting for teacher approval
+  Future<int> getPendingSuratCount({int? kelasId}) async {
+    try {
+      final list = await getDaftarPengajuanGuru(
+        kelasId: kelasId,
+        statusFilter: SuratStatus.menunggu.value,
+      );
+      return list.length;
+    } catch (e) {
+      debugPrint('[SuratRepo] Error getPendingSuratCount: $e');
+      return 0;
+    }
+  }
 }

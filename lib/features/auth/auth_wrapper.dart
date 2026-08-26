@@ -39,6 +39,10 @@ class _AuthWrapperState extends State<AuthWrapper> {
     final hasWaliSession = await waliStorageService.hasActiveSession();
     if (hasWaliSession) {
       debugPrint('--- [DEBUG] Sesi Wali Murid Ditemukan. Mengarahkan ke WaliDashboard. ---');
+      final children = await waliStorageService.getSavedChildren();
+      if (children.isNotEmpty) {
+        waliStorageService.syncOneSignalTags(children).catchError((_) {});
+      }
       if (!mounted) return;
       _navigateTo(const WaliDashboardScreen());
       return;

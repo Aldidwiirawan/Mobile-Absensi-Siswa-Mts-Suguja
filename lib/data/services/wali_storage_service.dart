@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:onesignal_flutter/onesignal_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/wali_murid_models.dart';
@@ -197,32 +198,29 @@ class WaliStorageService {
         return;
       }
 
-      final tags = <String, String>{
-        'role': 'wali_murid',
-        'children_count': children.length.toString(),
-      };
+      final primaryChild = children.first;
+      // Login with primary student ID so Web Admin and Mobile aliases match directly
+      await OneSignalService.loginUser('${primaryChild.id}');
 
-      for (int i = 0; i < children.length; i++) {
-        final child = children[i];
-        tags['siswa_id_${child.id}'] = 'true';
-        if (child.kelasId != null) {
-          tags['kelas_id_${child.id}'] = child.kelasId.toString();
+      try {
+        OneSignal.User.addAlias('siswa_id', '${primaryChild.id}');
+        OneSignal.User.addAlias('siswa_tag', 'siswa_${primaryChild.id}');
+        if (primaryChild.nis.isNotEmpty) {
+          OneSignal.User.addAlias('nis', primaryChild.nis);
+          OneSignal.User.addAlias('nis_tag', 'nis_${primaryChild.nis}');
         }
-        // Primary student ID for 1st child
-        if (i == 0) {
-          tags['siswa_id'] = child.id.toString();
-          tags['nama_siswa'] = child.nama;
-          if (child.kelasId != null) {
-            tags['kelas_id'] = child.kelasId.toString();
-          }
-          if (child.namaKelas.isNotEmpty && child.namaKelas != 'Belum Ditentukan') {
-            tags['nama_kelas'] = child.namaKelas;
-          }
-        }
+      } catch (e) {
+        debugPrint('[WaliStorage] Info alias: $e');
       }
 
+      // Only send maximum 2 essential tags to stay strictly within OneSignal's free tier tag limits (max 3)
+      final tags = <String, String>{
+        'role': 'wali_murid',
+        'siswa_id': '${primaryChild.id}',
+      };
+
       await OneSignalService.setTags(tags);
-      debugPrint('[WaliStorage] OneSignal Tags synced for ${children.length} anak: $tags');
+      debugPrint('[WaliStorage] OneSignal Tags synced for child ${primaryChild.nama} (ID: ${primaryChild.id}): $tags');
     } catch (e) {
       debugPrint('[WaliStorage] Error syncing OneSignal tags: $e');
     }

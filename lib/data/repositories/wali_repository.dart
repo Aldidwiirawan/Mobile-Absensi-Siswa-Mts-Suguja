@@ -465,9 +465,8 @@ class WaliRepository {
         items.add(
           WaliNotificationItem(
             id: id,
-            title: isLate
-                ? '⚠️ Presensi Masuk (Terlambat): ${child.nama}'
-                : '✅ Presensi Masuk: ${child.nama}',
+            // Judul seragam dengan push notification, status ada di message
+            title: '✅ Presensi Masuk: ${child.nama}',
             message: isLate
                 ? 'Ananda telah tiba di sekolah pukul ${att.waktuMasuk!.substring(0, 5)} WIB dengan status Terlambat.'
                 : 'Alhamdulillah, ananda telah tiba di sekolah tepat waktu pukul ${att.waktuMasuk!.substring(0, 5)} WIB.',

@@ -53,6 +53,8 @@ class OneSignalService {
       debugPrint(
         '[OneSignal] Notifikasi diterima (Foreground): ${event.notification.title} - ${event.notification.body}',
       );
+      // Ensure notification is displayed in status bar/tray even when app is in foreground
+      event.notification.display();
     });
 
     // When user taps/clicks a notification
@@ -72,7 +74,7 @@ class OneSignalService {
 
   /// Login user to OneSignal (set External User ID)
   static Future<void> loginUser(String userId) async {
-    if (!_isInitialized && !AppConstants.isOneSignalConfigured) return;
+    if (!_isInitialized || !AppConstants.isOneSignalConfigured) return;
     try {
       await OneSignal.login(userId);
       debugPrint('[OneSignal] User login: $userId');
@@ -83,7 +85,7 @@ class OneSignalService {
 
   /// Logout user from OneSignal
   static Future<void> logoutUser() async {
-    if (!_isInitialized && !AppConstants.isOneSignalConfigured) return;
+    if (!_isInitialized || !AppConstants.isOneSignalConfigured) return;
     try {
       await OneSignal.logout();
       debugPrint('[OneSignal] User logout');
@@ -94,11 +96,9 @@ class OneSignalService {
 
   /// Set user tags for segmentation/targeting
   static Future<void> setTags(Map<String, String> tags) async {
-    if (!_isInitialized && !AppConstants.isOneSignalConfigured) return;
+    if (!_isInitialized || !AppConstants.isOneSignalConfigured) return;
     try {
-      for (final entry in tags.entries) {
-        OneSignal.User.addTagWithKey(entry.key, entry.value);
-      }
+      OneSignal.User.addTags(tags);
       debugPrint('[OneSignal] Tags berhasil diset: $tags');
     } catch (e) {
       debugPrint('[OneSignal] Error set tags: $e');
@@ -130,6 +130,7 @@ class OneSignalService {
   /// Send attendance notification to parents when student arrives at school
   static Future<bool> sendAbsensiMasukNotification({
     required int siswaId,
+    String? nis,
     required String namaSiswa,
     required String jamMasuk,
     bool isLate = false,
@@ -139,9 +140,8 @@ class OneSignalService {
         ? 'Terlambat ${lateMinutes ?? 0} menit'
         : 'Tepat Waktu';
 
-    final heading = isLate
-        ? '⚠️ Presensi Masuk: $namaSiswa'
-        : '✅ Presensi Masuk: $namaSiswa';
+    // Heading selalu sama: status detail sudah ada di body content
+    const heading = '✅ Presensi Masuk';
 
     final content = isLate
         ? 'Ananda $namaSiswa telah tiba di sekolah pukul $jamMasuk WIB (Status: Terlambat $lateMinutes mnt).'
@@ -149,12 +149,14 @@ class OneSignalService {
 
     return await sendNotificationToStudentParents(
       siswaId: siswaId,
+      nis: nis,
       heading: heading,
       content: content,
       data: {
         'type': 'absensi',
         'action': 'masuk',
         'siswa_id': siswaId,
+        if (nis != null) 'nis': nis,
         'nama_siswa': namaSiswa,
         'jam': jamMasuk,
         'is_late': isLate,
@@ -166,6 +168,7 @@ class OneSignalService {
   /// Send attendance notification to parents when student checks out (leaves school)
   static Future<bool> sendAbsensiPulangNotification({
     required int siswaId,
+    String? nis,
     required String namaSiswa,
     required String jamPulang,
   }) async {
@@ -175,12 +178,14 @@ class OneSignalService {
 
     return await sendNotificationToStudentParents(
       siswaId: siswaId,
+      nis: nis,
       heading: heading,
       content: content,
       data: {
         'type': 'absensi',
         'action': 'pulang',
         'siswa_id': siswaId,
+        if (nis != null) 'nis': nis,
         'nama_siswa': namaSiswa,
         'jam': jamPulang,
       },
@@ -190,6 +195,7 @@ class OneSignalService {
   /// Send notification to parents when student attendance status is manually updated (Sakit, Izin, Alfa)
   static Future<bool> sendAbsensiStatusUpdateNotification({
     required int siswaId,
+    String? nis,
     required String namaSiswa,
     required String status,
     required String tanggal,
@@ -202,11 +208,13 @@ class OneSignalService {
 
     return await sendNotificationToStudentParents(
       siswaId: siswaId,
+      nis: nis,
       heading: heading,
       content: content,
       data: {
         'type': 'absensi_status_update',
         'siswa_id': siswaId,
+        if (nis != null) 'nis': nis,
         'nama_siswa': namaSiswa,
         'status': status,
         'tanggal': tanggal,
@@ -214,31 +222,56 @@ class OneSignalService {
     );
   }
 
-  /// Send push notification targeting parents of a specific student (via tag filter)
+  /// Send push notification targeting parents of a specific student
+  /// Combines External User ID targets (siswa_{id}, {id}, {nis}) with Tag filter fallback
   static Future<bool> sendNotificationToStudentParents({
     required int siswaId,
+    String? nis,
     required String heading,
     required String content,
     Map<String, dynamic>? data,
   }) async {
-    return await sendPushNotification(
-      filters: [
-        {
-          'field': 'tag',
-          'key': 'siswa_id',
-          'relation': '=',
-          'value': siswaId.toString(),
-        },
-      ],
+    // Primary: External ID tunggal sesuai loginUser('$siswaId')
+    // Hanya pakai SATU ID agar tidak dobel ke device yang punya sesi lama
+    final primaryId = '$siswaId';
+
+    // Fallback: tag filter jika external ID belum terdaftar di OneSignal
+    final filters = <Map<String, dynamic>>[
+      {
+        'field': 'tag',
+        'key': 'siswa_id',
+        'relation': '=',
+        'value': siswaId.toString(),
+      },
+    ];
+
+    // Coba external ID dulu (lebih cepat & pasti tidak dobel)
+    final externalSuccess = await sendPushNotification(
+      targetExternalUserIds: [primaryId],
       heading: heading,
       content: content,
       data: data,
     );
+
+    // Fallback ke tag filter hanya jika 0 penerima
+    if (!externalSuccess) {
+      debugPrint('[OneSignal] External ID 0 penerima, fallback ke tag filter...');
+      return await sendPushNotification(
+        filters: filters,
+        heading: heading,
+        content: content,
+        data: data,
+      );
+    }
+
+    return true;
   }
 
   /// Core method to send push notification via OneSignal REST API
   static Future<bool> sendPushNotification({
-    required List<Map<String, dynamic>> filters,
+    List<Map<String, dynamic>>? filters,
+    List<String>? targetExternalUserIds,
+    List<String>? targetSegments,
     required String heading,
     required String content,
     Map<String, dynamic>? data,
@@ -261,9 +294,8 @@ class OneSignalService {
 
     try {
       final url = Uri.parse('https://onesignal.com/api/v1/notifications');
-      final payload = {
+      final payload = <String, dynamic>{
         'app_id': appId,
-        'filters': filters,
         'headings': {
           'en': heading,
           'id': heading,
@@ -272,25 +304,50 @@ class OneSignalService {
           'en': content,
           'id': content,
         },
+        'target_channel': 'push',
         if (data != null) 'data': data,
         'android_accent_color': 'FF2F6CB0',
       };
+
+      if (targetExternalUserIds != null && targetExternalUserIds.isNotEmpty) {
+        // Use v1 API field only – include_aliases is v2-only and causes silent failures
+        payload['include_external_user_ids'] = targetExternalUserIds;
+        payload['channel_for_external_user_ids'] = 'push';
+      } else if (filters != null && filters.isNotEmpty) {
+        payload['filters'] = filters;
+      } else if (targetSegments != null && targetSegments.isNotEmpty) {
+        payload['included_segments'] = targetSegments;
+      } else {
+        payload['included_segments'] = ['Total Subscriptions'];
+      }
+
+      // Handle both v1 and v2 API key authorization prefix
+      final authHeader = restApiKey.startsWith('Key ') || restApiKey.startsWith('Basic ')
+          ? restApiKey
+          : (restApiKey.startsWith('os_v2_') ? 'Key $restApiKey' : 'Basic $restApiKey');
 
       final response = await http.post(
         url,
         headers: {
           'Content-Type': 'application/json; charset=utf-8',
-          'Authorization': 'Basic $restApiKey',
+          'Authorization': authHeader,
         },
         body: jsonEncode(payload),
       );
 
-      if (response.statusCode == 200) {
-        debugPrint('[OneSignal Push] Notifikasi berhasil dikirim: ${response.body}');
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      final recipients = (body['recipients'] as num?)?.toInt() ?? 0;
+      final errors = body['errors'];
+
+      if ((response.statusCode == 200 || response.statusCode == 201) && errors == null && recipients > 0) {
+        debugPrint('[OneSignal Push] Notifikasi berhasil dikirim ($recipients penerima): ${response.body}');
+        return true;
+      } else if ((response.statusCode == 200 || response.statusCode == 201) && (body['id'] as String?)?.isNotEmpty == true && errors == null) {
+        debugPrint('[OneSignal Push] Notifikasi diterima server OneSignal: ${response.body}');
         return true;
       } else {
         debugPrint(
-          '[OneSignal Push] Gagal mengirim notifikasi (${response.statusCode}): ${response.body}',
+          '[OneSignal Push] Info pengiriman notifikasi (${response.statusCode}): ${response.body}',
         );
         return false;
       }

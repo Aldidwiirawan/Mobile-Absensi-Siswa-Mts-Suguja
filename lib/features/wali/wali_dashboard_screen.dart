@@ -59,6 +59,9 @@ class _WaliDashboardScreenState extends State<WaliDashboardScreen> {
         return;
       }
 
+      // Sync OneSignal session & tags for linked children
+      waliStorageService.syncOneSignalTags(children).catchError((_) {});
+
       setState(() {
         _children = children;
         _activeChild = active ?? children.first;

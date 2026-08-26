@@ -99,8 +99,10 @@ class _ContinuousScannerDialogState extends State<ContinuousScannerDialog> {
       }
 
       // Process attendance
+      // `result` is the scanned NIS value from the QR code
       final absensiResult = await _absensiRepository.processCheckIn(
         siswaId: siswaData.id,
+        nis: result,
         namaSiswa: siswaData.nama,
         kelasId: siswaData.kelasId,
       );

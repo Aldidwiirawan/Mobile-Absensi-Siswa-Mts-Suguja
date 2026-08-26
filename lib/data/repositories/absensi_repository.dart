@@ -6,7 +6,6 @@ import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 import '../../core/constants.dart';
 import '../../core/exceptions.dart';
 import '../models/models.dart';
-import '../services/onesignal_service.dart';
 import '../services/supabase_service.dart';
 
 /// Repository for attendance (absensi) operations
@@ -79,6 +78,7 @@ class AbsensiRepository {
   /// Process check-in attendance from QR scan
   Future<AbsensiResult> processCheckIn({
     required int siswaId,
+    String? nis,
     required String namaSiswa,
     required int? kelasId,
   }) async {
@@ -135,17 +135,8 @@ class AbsensiRepository {
           });
         }
 
-        // Send push notification to parents asynchronously
-        OneSignalService.sendAbsensiMasukNotification(
-          siswaId: siswaId,
-          namaSiswa: namaSiswa,
-          jamMasuk: jamScanStr,
-          isLate: isLate,
-          lateMinutes: lateMinutes,
-        ).catchError((e) {
-          debugPrint('[Absensi] Gagal mengirim notifikasi masuk OneSignal: $e');
-          return false;
-        });
+        // Notifikasi dikirim otomatis oleh Supabase Edge Function
+        // (trigger dari database webhook — tidak perlu kirim dari sini)
 
         return AbsensiResult(
           success: true,
@@ -161,6 +152,7 @@ class AbsensiRepository {
         return _processCheckOut(
           existingData: existingData,
           siswaId: siswaId,
+          nis: nis,
           namaSiswa: namaSiswa,
           kelasId: kelasId,
           now: now,
@@ -180,6 +172,7 @@ class AbsensiRepository {
   Future<AbsensiResult> _processCheckOut({
     required Map<String, dynamic> existingData,
     required int siswaId,
+    String? nis,
     required String namaSiswa,
     required int? kelasId,
     required DateTime now,
@@ -230,15 +223,8 @@ class AbsensiRepository {
       AbsensiColumns.updatedAt: DateTime.now().toIso8601String(),
     }).eq('id', existingData['id']);
 
-    // Send push notification to parents asynchronously
-    OneSignalService.sendAbsensiPulangNotification(
-      siswaId: siswaId,
-      namaSiswa: namaSiswa,
-      jamPulang: jamScanStr,
-    ).catchError((e) {
-      debugPrint('[Absensi] Gagal mengirim notifikasi pulang OneSignal: $e');
-      return false;
-    });
+    // Notifikasi dikirim otomatis oleh Supabase Edge Function
+    // (trigger dari database webhook — tidak perlu kirim dari sini)
 
     return AbsensiResult(
       success: true,

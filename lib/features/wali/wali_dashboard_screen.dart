@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -35,11 +36,35 @@ class _WaliDashboardScreenState extends State<WaliDashboardScreen> {
   int _unreadNotifCount = 0;
 
   bool _isLoading = true;
+  Timer? _autoRefreshTimer;
 
   @override
   void initState() {
     super.initState();
     _loadInitialData();
+  }
+
+  @override
+  void dispose() {
+    _stopAutoRefresh();
+    super.dispose();
+  }
+
+  void _startAutoRefresh() {
+    _autoRefreshTimer?.cancel();
+    _autoRefreshTimer = Timer.periodic(
+      const Duration(seconds: UiConstants.autoRefreshSeconds),
+      (_) {
+        if (_activeChild != null && mounted && !_isLoading) {
+          _fetchChildData(_activeChild!, isBackground: true);
+        }
+      },
+    );
+  }
+
+  void _stopAutoRefresh() {
+    _autoRefreshTimer?.cancel();
+    _autoRefreshTimer = null;
   }
 
   Future<void> _loadInitialData() async {
@@ -70,6 +95,7 @@ class _WaliDashboardScreenState extends State<WaliDashboardScreen> {
       if (_activeChild != null) {
         await _fetchChildData(_activeChild!);
       }
+      _startAutoRefresh();
     } catch (e) {
       debugPrint('[WaliDashboard] Error loading initial data: $e');
     } finally {
@@ -77,7 +103,7 @@ class _WaliDashboardScreenState extends State<WaliDashboardScreen> {
     }
   }
 
-  Future<void> _fetchChildData(ChildProfile child) async {
+  Future<void> _fetchChildData(ChildProfile child, {bool isBackground = false}) async {
     try {
       final profileFuture = _waliRepository.getChildProfileById(child.id);
       final unreadFuture = _waliRepository.getUnreadNotificationCount(child);
@@ -497,13 +523,16 @@ class _WaliDashboardScreenState extends State<WaliDashboardScreen> {
         children: [
           // 1. Banner Ajukan Surat Izin / Sakit Mandiri
           BouncingWidget(
-            onTap: () {
-              Navigator.push(
+            onTap: () async {
+              await Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (_) => PengajuanSuratScreen(child: _activeChild!),
                 ),
               );
+              if (_activeChild != null && mounted) {
+                _fetchChildData(_activeChild!);
+              }
             },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -618,13 +647,13 @@ class _WaliDashboardScreenState extends State<WaliDashboardScreen> {
                             Container(
                               padding: const EdgeInsets.all(7),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF2563EB)
-                                    .withValues(alpha: 0.1),
+                                color: const Color(0xFF8B5CF6)
+                                    .withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: const Icon(
-                                Icons.notifications_active_rounded,
-                                color: Color(0xFF2563EB),
+                                Icons.campaign_rounded,
+                                color: Color(0xFF8B5CF6),
                                 size: 18,
                               ),
                             ),
@@ -652,7 +681,7 @@ class _WaliDashboardScreenState extends State<WaliDashboardScreen> {
                                 children: [
                                   const Flexible(
                                     child: Text(
-                                      'Riwayat Info',
+                                      'Pengumuman',
                                       style: TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.bold,
@@ -685,12 +714,12 @@ class _WaliDashboardScreenState extends State<WaliDashboardScreen> {
                               ),
                               Text(
                                 _unreadNotifCount > 0
-                                    ? '$_unreadNotifCount baru belum dibaca'
-                                    : 'Notifikasi sekolah',
+                                    ? '$_unreadNotifCount pengumuman baru'
+                                    : 'Info resmi sekolah',
                                 style: TextStyle(
                                   fontSize: 10,
                                   color: _unreadNotifCount > 0
-                                      ? const Color(0xFF2563EB)
+                                      ? const Color(0xFF7C3AED)
                                       : const Color(0xFF64748B),
                                   fontWeight: _unreadNotifCount > 0
                                       ? FontWeight.bold

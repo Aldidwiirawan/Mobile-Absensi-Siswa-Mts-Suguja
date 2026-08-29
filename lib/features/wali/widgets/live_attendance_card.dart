@@ -211,19 +211,44 @@ class LiveAttendanceCard extends StatelessWidget {
                       Expanded(
                         child: _buildTimeBox(
                           title: 'JAM MASUK',
-                          time: attendance.waktuMasuk != null
+                          time: attendance.hasScannedMasuk
                               ? '${attendance.waktuMasuk!.substring(0, 5)} WIB'
-                              : '-- : --',
-                          icon: Icons.login_rounded,
-                          isFilled: attendance.hasScannedMasuk,
+                              : (attendance.isAlfa
+                                  ? 'ALFA'
+                                  : (attendance.isSakit
+                                      ? 'SAKIT'
+                                      : (attendance.isIzin
+                                          ? 'IZIN'
+                                          : '-- : --'))),
+                          icon: attendance.isAlfa
+                              ? Icons.cancel_outlined
+                              : (attendance.isSakit
+                                  ? Icons.medical_services_outlined
+                                  : (attendance.isIzin
+                                      ? Icons.assignment_outlined
+                                      : Icons.login_rounded)),
+                          isFilled: attendance.hasScannedMasuk ||
+                              attendance.hasRecord,
                           badgeText: attendance.isLate
                               ? 'Telat ${attendance.lateMinutes ?? 0} mnt'
-                              : (attendance.hasScannedMasuk ? 'Tepat Waktu' : 'Belum Scan'),
-                          badgeColor: attendance.isLate
+                              : (attendance.hasScannedMasuk
+                                  ? 'Tepat Waktu'
+                                  : (attendance.isAlfa
+                                      ? 'Tidak Hadir'
+                                      : (attendance.isSakit
+                                          ? 'Izin Sakit'
+                                          : (attendance.isIzin
+                                              ? 'Izin Masuk'
+                                              : 'Belum Scan')))),
+                          badgeColor: attendance.isLate || attendance.isAlfa
                               ? const Color(0xFFEF4444)
                               : (attendance.hasScannedMasuk
                                   ? const Color(0xFF10B981)
-                                  : Colors.white24),
+                                  : (attendance.isSakit
+                                      ? const Color(0xFF3B82F6)
+                                      : (attendance.isIzin
+                                          ? const Color(0xFF8B5CF6)
+                                          : Colors.white24))),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -232,14 +257,20 @@ class LiveAttendanceCard extends StatelessWidget {
                       Expanded(
                         child: _buildTimeBox(
                           title: 'JAM PULANG',
-                          time: attendance.waktuPulang != null
+                          time: attendance.hasScannedPulang
                               ? '${attendance.waktuPulang!.substring(0, 5)} WIB'
                               : '-- : --',
                           icon: Icons.logout_rounded,
                           isFilled: attendance.hasScannedPulang,
                           badgeText: attendance.hasScannedPulang
                               ? 'Selesai'
-                              : (attendance.hasScannedMasuk ? 'Di Sekolah' : 'Belum Ada'),
+                              : (attendance.hasScannedMasuk
+                                  ? 'Di Sekolah'
+                                  : (attendance.isAlfa
+                                      ? 'Tidak Ada'
+                                      : (attendance.isSakit || attendance.isIzin
+                                          ? 'Tidak Hadir'
+                                          : 'Belum Ada'))),
                           badgeColor: attendance.hasScannedPulang
                               ? const Color(0xFF10B981)
                               : (attendance.hasScannedMasuk
@@ -249,6 +280,49 @@ class LiveAttendanceCard extends StatelessWidget {
                       ),
                     ],
                   ),
+
+                  // Catatan / Keterangan Penolakan / Izin
+                  if (attendance.keterangan != null &&
+                      attendance.keterangan!.trim().isNotEmpty &&
+                      !attendance.hasScannedMasuk) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.22),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.2),
+                        ),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(
+                            Icons.info_outline_rounded,
+                            size: 16,
+                            color: Colors.white,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              attendance.keterangan!,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600,
+                                height: 1.3,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -352,7 +426,8 @@ class LiveAttendanceCard extends StatelessWidget {
       if (att.isLate) {
         return _StatusConfig(
           title: 'Hadir (Terlambat)',
-          subtitle: 'Ananda tiba terlambat ${att.lateMinutes ?? 0} menit di sekolah.',
+          subtitle:
+              'Ananda tiba terlambat ${att.lateMinutes ?? 0} menit di sekolah.',
           icon: Icons.warning_amber_rounded,
           dotColor: const Color(0xFFFBBF24),
           gradientColors: [const Color(0xFFD97706), const Color(0xFFB45309)],
@@ -369,10 +444,12 @@ class LiveAttendanceCard extends StatelessWidget {
       );
     }
 
-    if (att.status == AttendanceStatus.sakit) {
+    if (att.status == AttendanceStatus.sakit && att.hasRecord) {
       return _StatusConfig(
         title: 'Izin Sakit',
-        subtitle: 'Tercatat izin sakit untuk hari ini.',
+        subtitle: att.keterangan != null && att.keterangan!.isNotEmpty
+            ? att.keterangan!
+            : 'Tercatat izin sakit untuk hari ini.',
         icon: Icons.medical_services_rounded,
         dotColor: const Color(0xFF60A5FA),
         gradientColors: [const Color(0xFF2563EB), const Color(0xFF1D4ED8)],
@@ -380,14 +457,31 @@ class LiveAttendanceCard extends StatelessWidget {
       );
     }
 
-    if (att.status == AttendanceStatus.izin) {
+    if (att.status == AttendanceStatus.izin && att.hasRecord) {
       return _StatusConfig(
         title: 'Izin Berhalangan',
-        subtitle: 'Tercatat izin tidak masuk sekolah hari ini.',
+        subtitle: att.keterangan != null && att.keterangan!.isNotEmpty
+            ? att.keterangan!
+            : 'Tercatat izin tidak masuk sekolah hari ini.',
         icon: Icons.assignment_rounded,
         dotColor: const Color(0xFFC084FC),
         gradientColors: [const Color(0xFF7C3AED), const Color(0xFF6D28D9)],
         shadowColor: const Color(0xFF7C3AED),
+      );
+    }
+
+    if (att.status == AttendanceStatus.alfa && att.hasRecord) {
+      final isDitolak =
+          (att.keterangan ?? '').toLowerCase().contains('ditolak');
+      return _StatusConfig(
+        title: isDitolak ? 'Surat Ditolak (Alfa)' : 'Tidak Hadir (Alfa)',
+        subtitle: att.keterangan != null && att.keterangan!.isNotEmpty
+            ? att.keterangan!
+            : 'Ananda tercatat tidak hadir / alfa hari ini.',
+        icon: Icons.cancel_rounded,
+        dotColor: const Color(0xFFEF4444),
+        gradientColors: [const Color(0xFFDC2626), const Color(0xFF991B1B)],
+        shadowColor: const Color(0xFFDC2626),
       );
     }
 

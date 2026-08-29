@@ -113,8 +113,15 @@ class TodayAttendance {
     this.lateMinutes,
   });
 
+  /// Whether there is an actual attendance record saved in database today
+  bool get hasRecord => id != null;
+  bool get isAlfa => status == AttendanceStatus.alfa && hasRecord;
+  bool get isSakit => status == AttendanceStatus.sakit && hasRecord;
+  bool get isIzin => status == AttendanceStatus.izin && hasRecord;
+
   factory TodayAttendance.empty(int siswaId) {
     return TodayAttendance(
+      id: null,
       siswaId: siswaId,
       tanggal: DateTime.now(),
       status: AttendanceStatus.alfa,
@@ -230,14 +237,16 @@ class AttendanceChartPoint {
   });
 }
 
-/// Model for Parent Notification Feed Entry
+/// Model for Parent Notification / Announcement Entry
 class WaliNotificationItem {
   final String id;
   final String title;
   final String message;
   final DateTime timestamp;
-  final String type; // 'masuk', 'pulang', 'status', 'pengumuman'
+  final String type; // 'pengumuman', 'informasi', 'admin'
   final bool isRead;
+  final String? author;
+  final String? category;
   final Map<String, dynamic>? data;
 
   WaliNotificationItem({
@@ -245,21 +254,33 @@ class WaliNotificationItem {
     required this.title,
     required this.message,
     required this.timestamp,
-    required this.type,
+    this.type = 'pengumuman',
     this.isRead = false,
+    this.author,
+    this.category,
     this.data,
   });
 
   factory WaliNotificationItem.fromJson(Map<String, dynamic> json) {
     return WaliNotificationItem(
-      id: json['id'] as String? ?? DateTime.now().millisecondsSinceEpoch.toString(),
-      title: json['title'] as String? ?? 'Pemberitahuan Presensi',
-      message: json['message'] as String? ?? '',
+      id: json['id'] as String? ??
+          DateTime.now().millisecondsSinceEpoch.toString(),
+      title: json['title'] as String? ??
+          json['judul'] as String? ??
+          'Pengumuman Sekolah',
+      message: json['message'] as String? ??
+          json['isi'] as String? ??
+          json['konten'] as String? ??
+          '',
       timestamp: json['timestamp'] != null
           ? DateTime.tryParse(json['timestamp'] as String) ?? DateTime.now()
-          : DateTime.now(),
-      type: json['type'] as String? ?? 'masuk',
+          : (json['created_at'] != null
+              ? DateTime.tryParse(json['created_at'] as String) ?? DateTime.now()
+              : DateTime.now()),
+      type: json['type'] as String? ?? 'pengumuman',
       isRead: json['is_read'] as bool? ?? false,
+      author: json['author'] as String? ?? json['penulis'] as String?,
+      category: json['category'] as String? ?? json['kategori'] as String?,
       data: json['data'] as Map<String, dynamic>?,
     );
   }
@@ -271,6 +292,8 @@ class WaliNotificationItem {
         'timestamp': timestamp.toIso8601String(),
         'type': type,
         'is_read': isRead,
+        if (author != null) 'author': author,
+        if (category != null) 'category': category,
         if (data != null) 'data': data,
       };
 }

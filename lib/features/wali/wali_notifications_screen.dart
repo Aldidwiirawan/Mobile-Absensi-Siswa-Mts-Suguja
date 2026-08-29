@@ -7,7 +7,7 @@ import '../../data/models/wali_murid_models.dart';
 import '../../data/repositories/wali_repository.dart';
 import '../../data/services/wali_storage_service.dart';
 
-/// Screen displaying notification timeline & school announcements for parents
+/// Screen displaying official school announcements & admin notifications for parents
 class WaliNotificationsScreen extends StatefulWidget {
   final ChildProfile child;
 
@@ -56,6 +56,155 @@ class _WaliNotificationsScreenState extends State<WaliNotificationsScreen> {
     await _loadNotifications();
   }
 
+  void _showDetailBottomSheet(WaliNotificationItem item) async {
+    if (!item.isRead) {
+      await waliStorageService.markNotificationAsRead(item.id);
+      _loadNotifications();
+    }
+
+    if (!mounted) return;
+
+    final timeStr =
+        DateFormat('EEEE, d MMMM yyyy • HH:mm', 'id_ID').format(item.timestamp);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF8B5CF6).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Icon(
+                    Icons.campaign_rounded,
+                    color: Color(0xFF8B5CF6),
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.author ?? 'Admin Sekolah',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                      Text(
+                        timeStr,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF94A3B8),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (item.category != null && item.category!.isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF3E8FF),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      item.category!,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF7C3AED),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            Text(
+              item.title,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1E293B),
+                height: 1.3,
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Divider(color: Color(0xFFF1F5F9)),
+            const SizedBox(height: 12),
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.45,
+              ),
+              child: SingleChildScrollView(
+                child: Text(
+                  item.message,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Color(0xFF334155),
+                    height: 1.6,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(ctx),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2563EB),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  elevation: 0,
+                ),
+                child: const Text(
+                  'Tutup',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final hasUnread = _notifications.any((n) => !n.isRead);
@@ -64,7 +213,7 @@ class _WaliNotificationsScreenState extends State<WaliNotificationsScreen> {
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
         title: const Text(
-          'Riwayat & Pengumuman',
+          'Pengumuman Sekolah',
           style: TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 18,
@@ -117,26 +266,20 @@ class _WaliNotificationsScreenState extends State<WaliNotificationsScreen> {
   }
 
   Widget _buildNotificationCard(WaliNotificationItem item, int index) {
-    final config = _getNotificationConfig(item.type);
     final timeStr =
         DateFormat('d MMM yyyy • HH:mm', 'id_ID').format(item.timestamp);
 
     return GestureDetector(
-      onTap: () async {
-        if (!item.isRead) {
-          await waliStorageService.markNotificationAsRead(item.id);
-          _loadNotifications();
-        }
-      },
+      onTap: () => _showDetailBottomSheet(item),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: item.isRead ? Colors.white : const Color(0xFFF0F7FF),
+          color: item.isRead ? Colors.white : const Color(0xFFF5F3FF),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: item.isRead
                 ? const Color(0xFFE2E8F0)
-                : const Color(0xFF93C5FD),
+                : const Color(0xFFC4B5FD),
             width: item.isRead ? 1 : 1.5,
           ),
           boxShadow: [
@@ -157,12 +300,12 @@ class _WaliNotificationsScreenState extends State<WaliNotificationsScreen> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: config.color.withValues(alpha: 0.12),
+                    color: const Color(0xFF8B5CF6).withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(14),
                   ),
-                  child: Icon(
-                    config.icon,
-                    color: config.color,
+                  child: const Icon(
+                    Icons.campaign_rounded,
+                    color: Color(0xFF8B5CF6),
                     size: 22,
                   ),
                 ),
@@ -199,7 +342,7 @@ class _WaliNotificationsScreenState extends State<WaliNotificationsScreen> {
                             fontWeight: FontWeight.bold,
                             color: item.isRead
                                 ? const Color(0xFF1E293B)
-                                : const Color(0xFF1E3A8A),
+                                : const Color(0xFF5B21B6),
                             letterSpacing: -0.2,
                           ),
                         ),
@@ -209,8 +352,8 @@ class _WaliNotificationsScreenState extends State<WaliNotificationsScreen> {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF2563EB)
-                                .withValues(alpha: 0.1),
+                            color: const Color(0xFF8B5CF6)
+                                .withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: const Text(
@@ -218,7 +361,7 @@ class _WaliNotificationsScreenState extends State<WaliNotificationsScreen> {
                             style: TextStyle(
                               fontSize: 9.5,
                               fontWeight: FontWeight.w800,
-                              color: Color(0xFF2563EB),
+                              color: Color(0xFF7C3AED),
                             ),
                           ),
                         ),
@@ -227,6 +370,8 @@ class _WaliNotificationsScreenState extends State<WaliNotificationsScreen> {
                   const SizedBox(height: 4),
                   Text(
                     item.message,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontSize: 13,
                       color: Color(0xFF475569),
@@ -234,13 +379,27 @@ class _WaliNotificationsScreenState extends State<WaliNotificationsScreen> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    timeStr,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: Color(0xFF94A3B8),
-                      fontWeight: FontWeight.w500,
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        timeStr,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF94A3B8),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      if (item.author != null && item.author!.isNotEmpty)
+                        Text(
+                          item.author!,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF7C3AED),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                    ],
                   ),
                 ],
               ),
@@ -263,17 +422,17 @@ class _WaliNotificationsScreenState extends State<WaliNotificationsScreen> {
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: const Color(0xFF2563EB).withValues(alpha: 0.08),
+              color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
             ),
             child: const Icon(
-              Icons.notifications_none_rounded,
+              Icons.campaign_outlined,
               size: 64,
-              color: Color(0xFF2563EB),
+              color: Color(0xFF8B5CF6),
             ),
           ),
           const SizedBox(height: 18),
           const Text(
-            'Belum Ada Pemberitahuan',
+            'Belum Ada Pengumuman',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -284,7 +443,7 @@ class _WaliNotificationsScreenState extends State<WaliNotificationsScreen> {
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 40),
             child: Text(
-              'Notifikasi absensi masuk dan pulang ananda akan muncul di sini secara otomatis.',
+              'Pengumuman dan pemberitahuan resmi dari pihak sekolah/admin akan muncul di sini secara otomatis.',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
             ),
@@ -293,40 +452,4 @@ class _WaliNotificationsScreenState extends State<WaliNotificationsScreen> {
       ),
     );
   }
-
-  _NotificationConfig _getNotificationConfig(String type) {
-    switch (type) {
-      case 'masuk':
-        return _NotificationConfig(
-          icon: Icons.check_circle_rounded,
-          color: const Color(0xFF10B981),
-        );
-      case 'pulang':
-        return _NotificationConfig(
-          icon: Icons.logout_rounded,
-          color: const Color(0xFF0284C7),
-        );
-      case 'terlambat':
-        return _NotificationConfig(
-          icon: Icons.warning_amber_rounded,
-          color: const Color(0xFFF59E0B),
-        );
-      case 'pengumuman':
-      default:
-        return _NotificationConfig(
-          icon: Icons.campaign_rounded,
-          color: const Color(0xFF8B5CF6),
-        );
-    }
-  }
-}
-
-class _NotificationConfig {
-  final IconData icon;
-  final Color color;
-
-  _NotificationConfig({
-    required this.icon,
-    required this.color,
-  });
 }

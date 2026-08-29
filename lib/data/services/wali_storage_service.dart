@@ -152,6 +152,55 @@ class WaliStorageService {
   }
 
   static const String _keyReadNotifications = 'wali_read_notification_ids';
+  static const String _keyInAppNotifications = 'wali_in_app_notifications';
+
+  /// Save an incoming in-app notification (e.g. from OneSignal push)
+  Future<void> saveInAppNotification(WaliNotificationItem item) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final currentList = await getLocalInAppNotifications();
+      final existingIndex = currentList.indexWhere((n) => n.id == item.id);
+      if (existingIndex >= 0) {
+        currentList[existingIndex] = item;
+      } else {
+        currentList.insert(0, item);
+      }
+      if (currentList.length > 50) {
+        currentList.removeRange(50, currentList.length);
+      }
+      final encoded = currentList.map((n) => jsonEncode(n.toJson())).toList();
+      await prefs.setStringList(_keyInAppNotifications, encoded);
+      debugPrint('[WaliStorage] In-app notifikasi disimpan: ${item.title}');
+    } catch (e) {
+      debugPrint('[WaliStorage] Error saving in-app notification: $e');
+    }
+  }
+
+  /// Get local in-app notifications
+  Future<List<WaliNotificationItem>> getLocalInAppNotifications() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final rawList = prefs.getStringList(_keyInAppNotifications);
+      if (rawList == null || rawList.isEmpty) return [];
+      return rawList.map((str) {
+        final map = jsonDecode(str) as Map<String, dynamic>;
+        return WaliNotificationItem.fromJson(map);
+      }).toList();
+    } catch (e) {
+      debugPrint('[WaliStorage] Error getting local in-app notifications: $e');
+      return [];
+    }
+  }
+
+  /// Clear all local in-app notifications
+  Future<void> clearInAppNotifications() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_keyInAppNotifications);
+    } catch (e) {
+      debugPrint('[WaliStorage] Error clearing in-app notifications: $e');
+    }
+  }
 
   /// Get list of read notification IDs
   Future<Set<String>> getReadNotificationIds() async {

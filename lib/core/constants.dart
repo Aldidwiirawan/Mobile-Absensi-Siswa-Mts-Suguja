@@ -71,6 +71,7 @@ abstract class DbTables {
   static const String kelas = 'kelas';
   static const String absensi = 'absensi';
   static const String surat = 'surat';
+  static const String pengumuman = 'pengumuman';
 }
 
 // ============================================================================

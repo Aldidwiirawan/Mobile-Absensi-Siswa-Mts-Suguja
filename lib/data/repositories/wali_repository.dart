@@ -411,74 +411,118 @@ class WaliRepository {
     }
   }
 
-  /// Get notification feed for child including read status
+  /// Get announcement & broadcast notifications for child from Supabase & local inbox
   Future<List<WaliNotificationItem>> getNotificationsForChild(
       ChildProfile child) async {
-    final now = DateTime.now();
-    final history = await getAttendanceHistory(
-      siswaId: child.id,
-      month: now.month,
-      year: now.year,
-    );
-
     final readIds = await waliStorageService.getReadNotificationIds();
     final List<WaliNotificationItem> items = [];
+    final Set<String> processedIds = {};
 
-    // School Announcement
-    const announcementId = 'announcement_mts_1';
-    items.add(
-      WaliNotificationItem(
-        id: announcementId,
-        title: '📢 Informasi Kegiatan MTs Sunan Gunung Jati',
-        message:
-            'Diberitahukan kepada seluruh wali murid bahwa kegiatan belajar mengajar berjalan normal sesuai jadwal kelas.',
-        timestamp: DateTime.now().subtract(const Duration(hours: 4)),
-        type: 'pengumuman',
-        isRead: readIds.contains(announcementId),
-      ),
-    );
-
-    for (final att in history) {
-      final tanggal = att.tanggal;
-
-      // Pulang event
-      if (att.waktuPulang != null) {
-        final id = 'pulang_${att.id}';
-        items.add(
-          WaliNotificationItem(
-            id: id,
-            title: '👋 Presensi Pulang: ${child.nama}',
-            message:
-                'Ananda telah melakukan absensi pulang pukul ${att.waktuPulang!.substring(0, 5)} WIB. Semoga selamat sampai di rumah!',
-            timestamp: DateTime.tryParse('$tanggal ${att.waktuPulang}') ??
-                DateTime.now(),
-            type: 'pulang',
-            isRead: readIds.contains(id),
-          ),
-        );
+    // 1. Fetch announcements from Supabase 'pengumuman' table
+    try {
+      List<dynamic>? response;
+      try {
+        response = await _client
+            .from(DbTables.pengumuman)
+            .select()
+            .order('created_at', ascending: false);
+      } catch (_) {
+        try {
+          // Fallback if created_at column is not present or named differently
+          response = await _client.from(DbTables.pengumuman).select();
+        } catch (e) {
+          debugPrint('[WaliRepo] Info query tabel pengumuman: $e');
+        }
       }
 
-      // Masuk event
-      if (att.waktuMasuk != null) {
-        final isLate = att.status == AttendanceStatus.terlambat;
-        final id = 'masuk_${att.id}';
-        items.add(
-          WaliNotificationItem(
-            id: id,
-            // Judul seragam dengan push notification, status ada di message
-            title: '✅ Presensi Masuk: ${child.nama}',
-            message: isLate
-                ? 'Ananda telah tiba di sekolah pukul ${att.waktuMasuk!.substring(0, 5)} WIB dengan status Terlambat.'
-                : 'Alhamdulillah, ananda telah tiba di sekolah tepat waktu pukul ${att.waktuMasuk!.substring(0, 5)} WIB.',
-            timestamp: DateTime.tryParse('$tanggal ${att.waktuMasuk}') ??
-                DateTime.now(),
-            type: isLate ? 'terlambat' : 'masuk',
-            isRead: readIds.contains(id),
-          ),
-        );
+      if (response != null && response.isNotEmpty) {
+        for (final row in response) {
+          final map = row as Map<String, dynamic>;
+
+          // Target Role Filter (e.g. 'all', 'wali_murid', 'semua', 'umum')
+          final targetRole = (map['target_role'] ?? map['target'] ?? map['role'])
+              ?.toString()
+              .toLowerCase();
+          if (targetRole != null &&
+              targetRole.isNotEmpty &&
+              targetRole != 'all' &&
+              targetRole != 'semua' &&
+              targetRole != 'wali' &&
+              targetRole != 'wali_murid' &&
+              targetRole != 'umum') {
+            if (targetRole.contains('guru') || targetRole.contains('admin')) {
+              continue; // Announcement is only for teachers / admins
+            }
+          }
+
+          // Target Class Filter
+          final rawKelasId = map['kelas_id'] ?? map['id_kelas'];
+          if (rawKelasId != null && child.kelasId != null) {
+            final parsedKelasId = int.tryParse(rawKelasId.toString());
+            if (parsedKelasId != null && parsedKelasId != child.kelasId) {
+              continue; // Announcement is targeted to a different class
+            }
+          }
+
+          final id = (map['id'] ?? map['uuid'] ?? map['pengumuman_id'])?.toString() ??
+              'pengumuman_${map.hashCode}';
+          final title = (map['judul'] ?? map['title'] ?? map['subjek'] ?? map['nama'] ?? 'Pengumuman Sekolah')
+              .toString();
+          final message = (map['isi'] ?? map['konten'] ?? map['pesan'] ?? map['deskripsi'] ?? map['keterangan'] ?? map['content'] ?? '')
+              .toString();
+          final rawTime = map['created_at'] ?? map['tanggal'] ?? map['tgl'] ?? map['waktu'] ?? map['updated_at'];
+          final timestamp = rawTime != null
+              ? (DateTime.tryParse(rawTime.toString()) ?? DateTime.now())
+              : DateTime.now();
+          final author = (map['penulis'] ?? map['author'] ?? map['created_by'] ?? map['nama_guru'] ?? map['sender'])?.toString();
+          final category = (map['kategori'] ?? map['tipe'] ?? map['category'])?.toString();
+
+          processedIds.add(id);
+          items.add(
+            WaliNotificationItem(
+              id: id,
+              title: title,
+              message: message,
+              timestamp: timestamp,
+              type: 'pengumuman',
+              isRead: readIds.contains(id),
+              author: author,
+              category: category,
+              data: map,
+            ),
+          );
+        }
       }
+    } catch (e) {
+      debugPrint('[WaliRepo] Error fetching pengumuman: $e');
     }
 
+    // 2. Merge local push notifications received via OneSignal (inbox)
+    try {
+      final localPushItems = await waliStorageService.getLocalInAppNotifications();
+      for (final localItem in localPushItems) {
+        if (!processedIds.contains(localItem.id)) {
+          processedIds.add(localItem.id);
+          items.add(
+            WaliNotificationItem(
+              id: localItem.id,
+              title: localItem.title,
+              message: localItem.message,
+              timestamp: localItem.timestamp,
+              type: 'pengumuman',
+              isRead: readIds.contains(localItem.id),
+              author: localItem.author,
+              category: localItem.category,
+              data: localItem.data,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('[WaliRepo] Error merging local notifications: $e');
+    }
+
+    // 3. Sort newest first
     items.sort((a, b) => b.timestamp.compareTo(a.timestamp));
     return items;
   }

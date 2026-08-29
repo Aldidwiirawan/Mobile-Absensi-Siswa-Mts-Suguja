@@ -4,6 +4,8 @@ import 'package:http/http.dart' as http;
 import 'package:onesignal_flutter/onesignal_flutter.dart';
 
 import '../../core/constants.dart';
+import '../models/wali_murid_models.dart';
+import 'wali_storage_service.dart';
 
 /// Service to handle OneSignal Push Notifications and Attendance Alerts
 class OneSignalService {
@@ -50,17 +52,21 @@ class OneSignalService {
   static void _setupListeners() {
     // When notification is received while app is in foreground
     OneSignal.Notifications.addForegroundWillDisplayListener((event) {
+      final notif = event.notification;
       debugPrint(
-        '[OneSignal] Notifikasi diterima (Foreground): ${event.notification.title} - ${event.notification.body}',
+        '[OneSignal] Notifikasi diterima (Foreground): ${notif.title} - ${notif.body}',
       );
+      _handleIncomingPush(notif);
       // Ensure notification is displayed in status bar/tray even when app is in foreground
       event.notification.display();
     });
 
     // When user taps/clicks a notification
     OneSignal.Notifications.addClickListener((event) {
-      debugPrint('[OneSignal] Notifikasi diklik: ${event.notification.title}');
-      final additionalData = event.notification.additionalData;
+      final notif = event.notification;
+      debugPrint('[OneSignal] Notifikasi diklik: ${notif.title}');
+      _handleIncomingPush(notif);
+      final additionalData = notif.additionalData;
       if (additionalData != null) {
         debugPrint('[OneSignal] Data payload: $additionalData');
       }
@@ -70,6 +76,44 @@ class OneSignalService {
     OneSignal.Notifications.addPermissionObserver((state) {
       debugPrint('[OneSignal] Status izin notifikasi berubah: $state');
     });
+  }
+
+  /// Automatically store announcement notifications to in-app inbox
+  static void _handleIncomingPush(OSNotification notif) {
+    try {
+      final title = notif.title ?? 'Pengumuman Sekolah';
+      final body = notif.body ?? '';
+      final additionalData = notif.additionalData ?? {};
+      final type = additionalData['type']?.toString() ?? 'pengumuman';
+
+      // Daily attendance push notifications are not stored in in-app announcement inbox
+      if (type == 'absensi' || type == 'absensi_status_update') {
+        return;
+      }
+
+      final notifId = notif.notificationId.isNotEmpty
+          ? notif.notificationId
+          : 'push_${DateTime.now().millisecondsSinceEpoch}';
+
+      final item = WaliNotificationItem(
+        id: notifId,
+        title: title,
+        message: body,
+        timestamp: DateTime.now(),
+        type: 'pengumuman',
+        isRead: false,
+        author: additionalData['penulis']?.toString() ??
+            additionalData['author']?.toString() ??
+            'Admin Sekolah',
+        category: additionalData['kategori']?.toString() ??
+            additionalData['category']?.toString(),
+        data: additionalData,
+      );
+
+      waliStorageService.saveInAppNotification(item);
+    } catch (e) {
+      debugPrint('[OneSignal] Error processing incoming push: $e');
+    }
   }
 
   /// Login user to OneSignal (set External User ID)

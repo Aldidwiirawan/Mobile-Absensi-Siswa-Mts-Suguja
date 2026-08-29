@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 
+import '../../core/constants.dart';
 import '../../core/exceptions.dart';
 import '../../data/models/models.dart';
 import '../../data/repositories/repositories.dart';
@@ -21,10 +23,20 @@ class DashboardLogic extends ChangeNotifier {
   double attendanceRate = 0.0;
   int pendingSuratCount = 0;
 
-  Future<void> loadDashboard() async {
-    isLoading = true;
-    errorMessage = '';
-    notifyListeners();
+  Timer? _autoRefreshTimer;
+
+  int get totalSiswa =>
+      summaryList.fold<int>(0, (sum, item) => sum + item.totalSiswa);
+
+  int get totalHadir =>
+      summaryList.fold<int>(0, (sum, item) => sum + item.totalPresent);
+
+  Future<void> loadDashboard({bool isBackground = false}) async {
+    if (!isBackground) {
+      isLoading = true;
+      errorMessage = '';
+      notifyListeners();
+    }
 
     try {
       // 1. Get Guru Profile
@@ -48,28 +60,49 @@ class DashboardLogic extends ChangeNotifier {
       pendingSuratCount = results[1] as int;
 
       // Calculate Global Attendance Rate
-      int totalSiswa = 0;
-      int totalHadir = 0;
+      final total = totalSiswa;
+      final present = totalHadir;
 
-      for (var summary in summaryList) {
-        totalSiswa += summary.totalSiswa;
-        totalHadir += summary.totalPresent; // hadir + terlambat
-      }
-
-      attendanceRate = totalSiswa == 0 ? 0 : (totalHadir / totalSiswa) * 100;
+      attendanceRate = total == 0 ? 0 : (present / total) * 100;
     } on AppException catch (e) {
-      errorMessage = 'Gagal memuat data: ${e.message}';
+      if (!isBackground) {
+        errorMessage = 'Gagal memuat data: ${e.message}';
+      }
       debugPrint('Dashboard Error: ${e.message}');
     } catch (e) {
-      errorMessage = 'Gagal memuat data: $e';
+      if (!isBackground) {
+        errorMessage = 'Gagal memuat data: $e';
+      }
       debugPrint('Dashboard Error: $e');
     } finally {
-      isLoading = false;
+      if (!isBackground) {
+        isLoading = false;
+      }
       notifyListeners();
     }
   }
 
+  void startAutoRefresh() {
+    _autoRefreshTimer?.cancel();
+    _autoRefreshTimer = Timer.periodic(
+      const Duration(seconds: UiConstants.autoRefreshSeconds),
+      (_) => loadDashboard(isBackground: true),
+    );
+  }
+
+  void stopAutoRefresh() {
+    _autoRefreshTimer?.cancel();
+    _autoRefreshTimer = null;
+  }
+
+  @override
+  void dispose() {
+    stopAutoRefresh();
+    super.dispose();
+  }
+
   Future<void> logout() async {
+    stopAutoRefresh();
     await _authRepository.signOut();
   }
 }

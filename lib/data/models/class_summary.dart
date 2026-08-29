@@ -7,6 +7,7 @@ class ClassSummary {
   final int sakit;
   final int izin;
   final int alfa;
+  final int pulang;
 
   ClassSummary({
     required this.namaKelas,
@@ -16,6 +17,7 @@ class ClassSummary {
     required this.sakit,
     required this.izin,
     required this.alfa,
+    this.pulang = 0,
   });
 
   factory ClassSummary.fromJson(Map<String, dynamic> json) {
@@ -27,11 +29,12 @@ class ClassSummary {
       sakit: json['sakit'] as int? ?? 0,
       izin: json['izin'] as int? ?? 0,
       alfa: json['alfa'] as int? ?? 0,
+      pulang: json['pulang'] as int? ?? 0,
     );
   }
 
-  /// Total students present (hadir + terlambat)
-  int get totalPresent => hadir + terlambat;
+  /// Total students present (hadir + terlambat + pulang)
+  int get totalPresent => hadir + terlambat + pulang;
 
   /// Total students absent
   int get totalAbsent => sakit + izin + alfa;
@@ -50,9 +53,10 @@ class ClassSummary {
         'sakit': sakit,
         'izin': izin,
         'alfa': alfa,
+        'pulang': pulang,
       };
 
   @override
   String toString() =>
-      'ClassSummary(namaKelas: $namaKelas, total: $totalSiswa, hadir: $hadir)';
+      'ClassSummary(namaKelas: $namaKelas, total: $totalSiswa, hadir: $hadir, terlambat: $terlambat, pulang: $pulang)';
 }

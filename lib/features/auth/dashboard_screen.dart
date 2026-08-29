@@ -19,7 +19,9 @@ class DashboardScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => DashboardLogic()..loadDashboard(),
+      create: (_) => DashboardLogic()
+        ..loadDashboard()
+        ..startAutoRefresh(),
       child: const _DashboardView(),
     );
   }
@@ -132,6 +134,15 @@ class _DashboardViewState extends State<_DashboardView> {
     return Scaffold(
       backgroundColor: const Color(0xFFF1F5F9), // Slate light
       appBar: AppBar(
+        leading: _selectedKelas != null
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back_rounded),
+                onPressed: () {
+                  setState(() => _selectedKelas = null);
+                  logic.loadDashboard(isBackground: true);
+                },
+              )
+            : null,
         title: Text(
           _selectedKelas ?? 'Dashboard Guru',
           style: const TextStyle(
@@ -218,13 +229,14 @@ class _DashboardViewState extends State<_DashboardView> {
           const SizedBox(width: 4),
         ],
       ),
-      drawer: _buildDrawer(context, logic),
+      drawer: _selectedKelas == null ? _buildDrawer(context, logic) : null,
       body: _selectedKelas != null
           ? PopScope(
               canPop: false,
               onPopInvokedWithResult: (didPop, result) {
                 if (didPop) return;
                 setState(() => _selectedKelas = null);
+                logic.loadDashboard(isBackground: true);
               },
               child: KelasScreen(namaKelas: _selectedKelas!),
             )
@@ -241,7 +253,8 @@ class _DashboardViewState extends State<_DashboardView> {
                   // Hero Attendance Ring Card
                   _AttendanceHeroCard(
                     rate: logic.attendanceRate,
-                    summaryList: logic.summaryList,
+                    totalHadir: logic.totalHadir,
+                    totalSiswa: logic.totalSiswa,
                   )
                       .animate()
                       .fadeIn(duration: 400.ms)
@@ -750,22 +763,17 @@ class _DashboardViewState extends State<_DashboardView> {
 
 class _AttendanceHeroCard extends StatelessWidget {
   final double rate;
-  final List<ClassSummary> summaryList;
+  final int totalHadir;
+  final int totalSiswa;
 
   const _AttendanceHeroCard({
     required this.rate,
-    required this.summaryList,
+    required this.totalHadir,
+    required this.totalSiswa,
   });
 
   @override
   Widget build(BuildContext context) {
-    int totalHadir = 0;
-    int totalSiswa = 0;
-    for (var s in summaryList) {
-      totalHadir += s.hadir;
-      totalSiswa += s.totalSiswa;
-    }
-
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(

@@ -299,18 +299,18 @@ class SuratRepository {
       try {
         final nama = surat.namaSiswa ?? 'Ananda';
         final jenisTitle = surat.isSakit ? 'Sakit' : 'Izin';
-        await OneSignalService.sendPushNotification(
+        await OneSignalService.sendNotificationToStudentParents(
+          siswaId: surat.siswaId,
+          nis: surat.nisSiswa,
           heading: '✅ Surat $jenisTitle Disetujui',
           content:
               'Pengajuan surat $jenisTitle untuk $nama pada tanggal ${surat.tanggal} telah disetujui oleh Guru/Wali Kelas.',
-          filters: [
-            {
-              'field': 'tag',
-              'key': 'siswa_id_${surat.siswaId}',
-              'relation': '=',
-              'value': 'true'
-            }
-          ],
+          data: {
+            'type': 'surat',
+            'status': 'disetujui',
+            'surat_id': surat.id,
+            'siswa_id': surat.siswaId,
+          },
         );
       } catch (e) {
         debugPrint('[SuratRepo] Warning sending OneSignal: $e');
@@ -358,18 +358,18 @@ class SuratRepository {
       try {
         final nama = surat.namaSiswa ?? 'Ananda';
         final jenisTitle = surat.isSakit ? 'Sakit' : 'Izin';
-        await OneSignalService.sendPushNotification(
+        await OneSignalService.sendNotificationToStudentParents(
+          siswaId: surat.siswaId,
+          nis: surat.nisSiswa,
           heading: '❌ Surat $jenisTitle Ditolak',
           content:
               'Pengajuan surat $jenisTitle untuk $nama ditolak. Alasan: $alasan',
-          filters: [
-            {
-              'field': 'tag',
-              'key': 'siswa_id_${surat.siswaId}',
-              'relation': '=',
-              'value': 'true'
-            }
-          ],
+          data: {
+            'type': 'surat',
+            'status': 'ditolak',
+            'surat_id': surat.id,
+            'siswa_id': surat.siswaId,
+          },
         );
       } catch (e) {
         debugPrint('[SuratRepo] Warning sending OneSignal: $e');

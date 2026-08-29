@@ -105,52 +105,14 @@ class _PengajuanSuratScreenState extends State<PengajuanSuratScreen>
   Future<void> _submitForm() async {
     if (!_formKey.currentState!.validate()) return;
 
+    // Untuk pengajuan Sakit, wajib melampirkan foto surat dokter / bukti
     if (_jenis == 'sakit' && _selectedImage == null) {
-      // Optional reminder for sick note
-      final confirm = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Row(
-            children: [
-              Icon(Icons.info_outline_rounded, color: Color(0xFFF59E0B)),
-              SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Surat Dokter / Bukti',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-          content: const Text(
-            'Anda belum melampirkan foto surat dokter/keterangan sakit. Apakah ingin tetap melanjutkan pengajuan?',
-            style: TextStyle(fontSize: 13),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Lampirkan Foto'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2563EB),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Lanjutkan'),
-            ),
-          ],
-        ),
+      HapticFeedback.vibrate();
+      _showSnackbar(
+        'Pengajuan izin sakit wajib melampirkan foto surat dokter / keterangan sakit.',
+        isError: true,
       );
-
-      if (confirm != true) return;
+      return;
     }
 
     setState(() => _isSubmitting = true);
@@ -497,14 +459,24 @@ class _PengajuanSuratScreenState extends State<PengajuanSuratScreen>
                     color: Color(0xFF334155),
                   ),
                 ),
-                Text(
-                  _jenis == 'sakit' ? '*Disarankan' : 'Opsional',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
                     color: _jenis == 'sakit'
-                        ? const Color(0xFFF59E0B)
-                        : const Color(0xFF94A3B8),
+                        ? const Color(0xFFFEF2F2)
+                        : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    _jenis == 'sakit' ? '*Wajib Diunggah' : 'Opsional',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: _jenis == 'sakit'
+                          ? const Color(0xFFEF4444)
+                          : const Color(0xFF94A3B8),
+                    ),
                   ),
                 ),
               ],
@@ -659,17 +631,48 @@ class _PengajuanSuratScreenState extends State<PengajuanSuratScreen>
       );
     }
 
+    final isSakit = _jenis == 'sakit';
+
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: const Color(0xFFE2E8F0),
-          style: BorderStyle.solid,
+          color: isSakit ? const Color(0xFFFCA5A5) : const Color(0xFFE2E8F0),
+          width: isSakit ? 1.3 : 1,
         ),
       ),
-      child: Row(
+      child: Column(
+        children: [
+          if (isSakit) ...[
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF2F2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.info_outline_rounded,
+                      size: 14, color: Color(0xFFEF4444)),
+                  SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Wajib melampirkan foto surat dokter / keterangan sakit',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFFDC2626),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          Row(
         children: [
           Expanded(
             child: BouncingWidget(
@@ -730,7 +733,9 @@ class _PengajuanSuratScreenState extends State<PengajuanSuratScreen>
           ),
         ],
       ),
-    );
+    ],
+  ),
+);
   }
 
   Widget _buildHistoryTab() {

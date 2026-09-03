@@ -24,7 +24,8 @@ class WaliDashboardScreen extends StatefulWidget {
   State<WaliDashboardScreen> createState() => _WaliDashboardScreenState();
 }
 
-class _WaliDashboardScreenState extends State<WaliDashboardScreen> {
+class _WaliDashboardScreenState extends State<WaliDashboardScreen>
+    with WidgetsBindingObserver {
   final _waliRepository = WaliRepository();
 
   List<ChildProfile> _children = [];
@@ -41,13 +42,29 @@ class _WaliDashboardScreenState extends State<WaliDashboardScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadInitialData();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _stopAutoRefresh();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!mounted) return;
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
+      _stopAutoRefresh();
+    } else if (state == AppLifecycleState.resumed) {
+      if (_activeChild != null && !_isLoading) {
+        _fetchChildData(_activeChild!, isBackground: true);
+      }
+      _startAutoRefresh();
+    }
   }
 
   void _startAutoRefresh() {
@@ -68,7 +85,6 @@ class _WaliDashboardScreenState extends State<WaliDashboardScreen> {
   }
 
   Future<void> _loadInitialData() async {
-    setState(() => _isLoading = true);
     try {
       final children = await waliStorageService.getSavedChildren();
       final active = await waliStorageService.getActiveChild();
@@ -87,9 +103,22 @@ class _WaliDashboardScreenState extends State<WaliDashboardScreen> {
       // Sync OneSignal session & tags for linked children
       waliStorageService.syncOneSignalTags(children).catchError((_) {});
 
+      final targetChild = active ?? children.first;
+
+      // 1. Instant Cache Load (Zero-delay perceptual load)
+      final cachedAtt = await waliStorageService.getCachedTodayAttendance(targetChild.id);
+      final cachedStats = await waliStorageService.getCachedMonthlyStats(
+        targetChild.id,
+        _selectedMonth.month,
+        _selectedMonth.year,
+      );
+
       setState(() {
         _children = children;
-        _activeChild = active ?? children.first;
+        _activeChild = targetChild;
+        _todayAttendance = cachedAtt;
+        _monthlyStats = cachedStats;
+        _isLoading = (cachedAtt == null && cachedStats == null);
       });
 
       if (_activeChild != null) {
@@ -105,7 +134,9 @@ class _WaliDashboardScreenState extends State<WaliDashboardScreen> {
 
   Future<void> _fetchChildData(ChildProfile child, {bool isBackground = false}) async {
     try {
-      final profileFuture = _waliRepository.getChildProfileById(child.id);
+      final profileFuture = isBackground
+          ? Future<ChildProfile?>.value(null)
+          : _waliRepository.getChildProfileById(child.id);
       final unreadFuture = _waliRepository.getUnreadNotificationCount(child);
       final todayFuture = _waliRepository.getTodayAttendance(
         child.id,
@@ -124,6 +155,18 @@ class _WaliDashboardScreenState extends State<WaliDashboardScreen> {
         unreadFuture,
       ]);
 
+      final freshToday = results[0] as TodayAttendance;
+      final freshStats = results[1] as MonthlyAttendanceStats;
+
+      // Cache fresh data locally
+      unawaited(waliStorageService.cacheTodayAttendance(child.id, freshToday));
+      unawaited(waliStorageService.cacheMonthlyStats(
+        child.id,
+        _selectedMonth.month,
+        _selectedMonth.year,
+        freshStats,
+      ));
+
       if (mounted) {
         final freshProfile = results[2] as ChildProfile?;
         if (freshProfile != null) {
@@ -141,8 +184,8 @@ class _WaliDashboardScreenState extends State<WaliDashboardScreen> {
         }
 
         setState(() {
-          _todayAttendance = results[0] as TodayAttendance;
-          _monthlyStats = results[1] as MonthlyAttendanceStats;
+          _todayAttendance = freshToday;
+          _monthlyStats = freshStats;
           _unreadNotifCount = results[3] as int? ?? 0;
         });
       }
@@ -155,10 +198,18 @@ class _WaliDashboardScreenState extends State<WaliDashboardScreen> {
     if (_activeChild?.id == newChild.id) return;
     HapticFeedback.selectionClick();
 
+    // Instant Cache Load for selected child
+    final cachedAtt = await waliStorageService.getCachedTodayAttendance(newChild.id);
+    final cachedStats = await waliStorageService.getCachedMonthlyStats(
+      newChild.id,
+      _selectedMonth.month,
+      _selectedMonth.year,
+    );
+
     setState(() {
       _activeChild = newChild;
-      _todayAttendance = null;
-      _monthlyStats = null;
+      _todayAttendance = cachedAtt;
+      _monthlyStats = cachedStats;
     });
 
     await waliStorageService.setActiveChildId(newChild.id);

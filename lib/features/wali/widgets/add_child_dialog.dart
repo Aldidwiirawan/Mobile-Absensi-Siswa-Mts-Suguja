@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/exceptions.dart';
 import '../../../core/ui/bouncing_widget.dart';
 import '../../../data/models/wali_murid_models.dart';
 import '../../../data/repositories/wali_repository.dart';
@@ -69,7 +70,7 @@ class _AddChildBottomSheetState extends State<AddChildBottomSheet> {
       }
     } catch (e) {
       setState(() {
-        _errorMessage = e.toString().replaceAll('Exception: ', '');
+        _errorMessage = ErrorFormatter.format(e);
       });
       HapticFeedback.vibrate();
     } finally {

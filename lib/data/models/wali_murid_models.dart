@@ -167,6 +167,20 @@ class TodayAttendance {
       lateMinutes: lateMinutes,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'siswa_id': siswaId,
+        'tanggal': tanggal.toIso8601String(),
+        'status': status.value,
+        'waktu_masuk': waktuMasuk,
+        'waktu_pulang': waktuPulang,
+        'keterangan': keterangan,
+        'has_scanned_masuk': hasScannedMasuk,
+        'has_scanned_pulang': hasScannedPulang,
+        'is_late': isLate,
+        'late_minutes': lateMinutes,
+      };
 }
 
 /// Model for monthly attendance statistics
@@ -207,6 +221,37 @@ class MonthlyAttendanceStats {
     );
   }
 
+  factory MonthlyAttendanceStats.fromJson(Map<String, dynamic> json) {
+    final weeklyList = (json['weekly_trend'] as List<dynamic>?)
+            ?.map((e) => AttendanceChartPoint.fromJson(e as Map<String, dynamic>))
+            .toList() ??
+        [];
+
+    return MonthlyAttendanceStats(
+      totalHariSekolah: json['total_hari_sekolah'] as int? ?? 0,
+      totalHadir: json['total_hadir'] as int? ?? 0,
+      totalTerlambat: json['total_terlambat'] as int? ?? 0,
+      totalSakit: json['total_sakit'] as int? ?? 0,
+      totalIzin: json['total_izin'] as int? ?? 0,
+      totalAlfa: json['total_alfa'] as int? ?? 0,
+      bulan: json['bulan'] as int? ?? DateTime.now().month,
+      tahun: json['tahun'] as int? ?? DateTime.now().year,
+      weeklyTrend: weeklyList,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'total_hari_sekolah': totalHariSekolah,
+        'total_hadir': totalHadir,
+        'total_terlambat': totalTerlambat,
+        'total_sakit': totalSakit,
+        'total_izin': totalIzin,
+        'total_alfa': totalAlfa,
+        'bulan': bulan,
+        'tahun': tahun,
+        'weekly_trend': weeklyTrend.map((e) => e.toJson()).toList(),
+      };
+
   /// Total days student attended (including late)
   int get totalKehadiran => totalHadir + totalTerlambat;
 
@@ -214,11 +259,11 @@ class MonthlyAttendanceStats {
   int get totalTercatat =>
       totalHadir + totalTerlambat + totalSakit + totalIzin + totalAlfa;
 
-  /// Percentage of attendance (0.0 to 100.0)
+  /// Percentage of attendance (0.0 to 100.0) based on recorded attendance days
   double get attendancePercentage {
-    if (totalHariSekolah <= 0 || totalTercatat == 0) return 0.0;
+    if (totalTercatat == 0) return 0.0;
     final totalAttended = totalHadir + totalTerlambat;
-    return ((totalAttended / totalHariSekolah) * 100).clamp(0.0, 100.0);
+    return ((totalAttended / totalTercatat) * 100).clamp(0.0, 100.0);
   }
 }
 
@@ -235,6 +280,22 @@ class AttendanceChartPoint {
     this.hadir = 0,
     this.totalHari = 0,
   });
+
+  factory AttendanceChartPoint.fromJson(Map<String, dynamic> json) {
+    return AttendanceChartPoint(
+      label: json['label'] as String? ?? '',
+      percentage: (json['percentage'] as num?)?.toDouble() ?? 0.0,
+      hadir: json['hadir'] as int? ?? 0,
+      totalHari: json['total_hari'] as int? ?? 0,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'label': label,
+        'percentage': percentage,
+        'hadir': hadir,
+        'total_hari': totalHari,
+      };
 }
 
 /// Model for Parent Notification / Announcement Entry

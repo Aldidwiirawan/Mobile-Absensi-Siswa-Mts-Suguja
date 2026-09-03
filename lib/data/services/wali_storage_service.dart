@@ -142,10 +142,20 @@ class WaliStorageService {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_keyChildren);
       await prefs.remove(_keyActiveChildId);
+      await prefs.remove(_keyReadNotifications);
+      await prefs.remove(_keyInAppNotifications);
+
+      // Clean all cached attendance snapshots
+      final keys = prefs.getKeys();
+      for (final key in keys) {
+        if (key.startsWith('cache_today_att_') || key.startsWith('cache_month_stats_')) {
+          await prefs.remove(key);
+        }
+      }
 
       // Logout OneSignal
       await OneSignalService.logoutUser();
-      debugPrint('[WaliStorage] Sesi wali murid berhasil dibersihkan');
+      debugPrint('[WaliStorage] Sesi wali murid berhasil dibersihkan secara total');
     } catch (e) {
       debugPrint('[WaliStorage] Error clearing session: $e');
     }
@@ -272,6 +282,55 @@ class WaliStorageService {
       debugPrint('[WaliStorage] OneSignal Tags synced for child ${primaryChild.nama} (ID: ${primaryChild.id}): $tags');
     } catch (e) {
       debugPrint('[WaliStorage] Error syncing OneSignal tags: $e');
+    }
+  }
+
+  // ===========================================================================
+  // OFFLINE SNAPSHOT CACHING (Instant Perceived Load)
+  // ===========================================================================
+
+  static const String _prefixTodayAttendance = 'cache_today_att_';
+  static const String _prefixMonthlyStats = 'cache_month_stats_';
+
+  /// Cache today's attendance data for instant offline view
+  Future<void> cacheTodayAttendance(int childId, TodayAttendance data) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('$_prefixTodayAttendance$childId', jsonEncode(data.toJson()));
+    } catch (_) {}
+  }
+
+  /// Get cached today's attendance data
+  Future<TodayAttendance?> getCachedTodayAttendance(int childId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final str = prefs.getString('$_prefixTodayAttendance$childId');
+      if (str == null || str.isEmpty) return null;
+      final map = jsonDecode(str) as Map<String, dynamic>;
+      return TodayAttendance.fromJson(map);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Cache monthly attendance stats for instant offline view
+  Future<void> cacheMonthlyStats(int childId, int month, int year, MonthlyAttendanceStats stats) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('$_prefixMonthlyStats${childId}_${month}_$year', jsonEncode(stats.toJson()));
+    } catch (_) {}
+  }
+
+  /// Get cached monthly attendance stats
+  Future<MonthlyAttendanceStats?> getCachedMonthlyStats(int childId, int month, int year) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final str = prefs.getString('$_prefixMonthlyStats${childId}_${month}_$year');
+      if (str == null || str.isEmpty) return null;
+      final map = jsonDecode(str) as Map<String, dynamic>;
+      return MonthlyAttendanceStats.fromJson(map);
+    } catch (_) {
+      return null;
     }
   }
 }

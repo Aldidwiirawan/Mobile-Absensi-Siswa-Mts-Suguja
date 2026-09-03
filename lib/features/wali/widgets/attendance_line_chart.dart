@@ -139,6 +139,10 @@ class _AttendanceLineChartState extends State<AttendanceLineChart> {
   }
 
   Widget _buildTooltipBadge(AttendanceChartPoint pt) {
+    final tooltipText = pt.totalHari == 0
+        ? '${pt.label}: Belum ada data'
+        : '${pt.label}: ${pt.percentage.toInt()}% Hadir (${pt.hadir}/${pt.totalHari} hari)';
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
@@ -158,15 +162,17 @@ class _AttendanceLineChartState extends State<AttendanceLineChart> {
           Container(
             width: 7,
             height: 7,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Color(0xFF00D2FF),
+              color: pt.totalHari == 0
+                  ? const Color(0xFF94A3B8)
+                  : const Color(0xFF00D2FF),
             ),
           ),
           const SizedBox(width: 6),
           Flexible(
             child: Text(
-              '${pt.label}: ${pt.percentage.toInt()}% Hadir (${pt.hadir}/${pt.totalHari} hari)',
+              tooltipText,
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 11,

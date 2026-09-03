@@ -593,10 +593,15 @@ class _MonthlyStatsCardState extends State<MonthlyStatsCard> {
       return 'Belum ada catatan presensi ananda untuk bulan ini.';
     }
     if (rate >= 90) {
-      return 'Ananda sangat disiplin hadir ke sekolah bulan ini.';
+      if (st.totalTerlambat == 1) {
+        return 'Ananda aktif hadir di sekolah (tercatat 1x terlambat).';
+      } else if (st.totalTerlambat > 1) {
+        return 'Ananda aktif hadir di sekolah, namun tercatat ${st.totalTerlambat}x terlambat.';
+      }
+      return 'Ananda sangat disiplin hadir tepat waktu ke sekolah.';
     }
     if (rate >= 75) {
-      return 'Pertahankan kedisiplinan dan hindari keterlambatan.';
+      return 'Pertahankan kedisiplinan dan hindari keterlambatan/ketidakhadiran.';
     }
     return 'Jumlah kehadiran ananda di bawah standar minimal.';
   }

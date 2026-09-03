@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../../core/exceptions.dart';
 import '../../core/ui/bouncing_widget.dart';
 import '../../data/models/models.dart';
 import '../../data/repositories/repositories.dart';
@@ -141,7 +142,7 @@ class _PengajuanSuratScreenState extends State<PengajuanSuratScreen>
       await _loadHistory();
       _tabController.animateTo(1);
     } catch (e) {
-      _showSnackbar(e.toString().replaceAll('Exception: ', ''), isError: true);
+      _showSnackbar(ErrorFormatter.format(e), isError: true);
       HapticFeedback.vibrate();
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -150,13 +151,37 @@ class _PengajuanSuratScreenState extends State<PengajuanSuratScreen>
 
   void _showSnackbar(String msg, {bool isError = false}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
       SnackBar(
-        content: Text(msg),
+        content: Row(
+          children: [
+            Icon(
+              isError ? Icons.info_outline_rounded : Icons.check_circle_rounded,
+              color: Colors.white,
+              size: 20,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                msg,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  height: 1.3,
+                ),
+              ),
+            ),
+          ],
+        ),
         backgroundColor:
-            isError ? const Color(0xFFEF4444) : const Color(0xFF10B981),
+            isError ? const Color(0xFFDC2626) : const Color(0xFF10B981),
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        duration: Duration(seconds: isError ? 4 : 3),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       ),
     );
   }

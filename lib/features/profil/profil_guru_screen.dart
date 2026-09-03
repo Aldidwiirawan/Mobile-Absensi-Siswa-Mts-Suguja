@@ -6,6 +6,7 @@ import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../../core/exceptions.dart';
 import '../../core/ui/bouncing_widget.dart';
 import '../../data/models/guru.dart';
 import '../../data/repositories/auth_repository.dart';
@@ -76,7 +77,7 @@ class _ProfilGuruScreenState extends State<ProfilGuruScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        _showSnackbar('Gagal memuat profil: $e', isError: true);
+        _showSnackbar(ErrorFormatter.format(e), isError: true);
       }
     }
   }
@@ -112,7 +113,7 @@ class _ProfilGuruScreenState extends State<ProfilGuruScreen> {
         HapticFeedback.selectionClick();
       }
     } catch (e) {
-      _showSnackbar('Gagal memilih foto: $e', isError: true);
+      _showSnackbar(ErrorFormatter.format(e), isError: true);
     }
   }
 
@@ -255,7 +256,7 @@ class _ProfilGuruScreenState extends State<ProfilGuruScreen> {
       _showSnackbar('Profil Anda berhasil diperbarui!');
       await _loadProfile();
     } catch (e) {
-      _showSnackbar('Gagal menyimpan profil: $e', isError: true);
+      _showSnackbar(ErrorFormatter.format(e), isError: true);
       HapticFeedback.vibrate();
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -317,13 +318,37 @@ class _ProfilGuruScreenState extends State<ProfilGuruScreen> {
 
   void _showSnackbar(String msg, {bool isError = false}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
       SnackBar(
-        content: Text(msg),
+        content: Row(
+          children: [
+            Icon(
+              isError ? Icons.info_outline_rounded : Icons.check_circle_rounded,
+              color: Colors.white,
+              size: 20,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                msg,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  height: 1.3,
+                ),
+              ),
+            ),
+          ],
+        ),
         backgroundColor:
-            isError ? const Color(0xFFEF4444) : const Color(0xFF10B981),
+            isError ? const Color(0xFFDC2626) : const Color(0xFF10B981),
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        duration: Duration(seconds: isError ? 4 : 3),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       ),
     );
   }

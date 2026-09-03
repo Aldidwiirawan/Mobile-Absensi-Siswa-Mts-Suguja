@@ -111,6 +111,7 @@ class SiswaWithAbsensi {
   final String? jamMasuk;
   final String? jamPulang;
   final String? fileUrl;
+  final String? keterangan;
 
   SiswaWithAbsensi({
     required this.id,
@@ -120,6 +121,7 @@ class SiswaWithAbsensi {
     this.jamMasuk,
     this.jamPulang,
     this.fileUrl,
+    this.keterangan,
   });
 
   factory SiswaWithAbsensi.fromJson(Map<String, dynamic> json) {
@@ -131,6 +133,7 @@ class SiswaWithAbsensi {
       jamMasuk: json['jam_masuk'] as String?,
       jamPulang: json['jam_pulang'] as String?,
       fileUrl: json['file_url'] as String?,
+      keterangan: json['keterangan'] as String?,
     );
   }
 
@@ -152,6 +155,7 @@ class SiswaWithAbsensi {
     String? jamMasuk,
     String? jamPulang,
     String? fileUrl,
+    String? keterangan,
   }) {
     return SiswaWithAbsensi(
       id: id ?? this.id,
@@ -161,10 +165,11 @@ class SiswaWithAbsensi {
       jamMasuk: jamMasuk ?? this.jamMasuk,
       jamPulang: jamPulang ?? this.jamPulang,
       fileUrl: fileUrl ?? this.fileUrl,
+      keterangan: keterangan ?? this.keterangan,
     );
   }
 
   @override
   String toString() =>
-      'SiswaWithAbsensi(id: $id, nama: $nama, status: $statusAbsensi)';
+      'SiswaWithAbsensi(id: $id, nama: $nama, status: $statusAbsensi, ket: $keterangan)';
 }

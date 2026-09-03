@@ -473,6 +473,28 @@ class _SiswaCardItem extends StatelessWidget {
                       ],
                     ],
                   ),
+                  if (item.keterangan != null && item.keterangan!.trim().isNotEmpty) ...[
+                    const SizedBox(height: 3),
+                    Row(
+                      children: [
+                        Icon(Icons.notes_rounded, size: 11, color: Colors.orange.shade800),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            item.keterangan!,
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontStyle: FontStyle.italic,
+                              color: Colors.orange.shade900,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -514,6 +536,7 @@ class _SiswaCardItem extends StatelessWidget {
                       no: item.no.toString(),
                       nama: item.nama,
                       statusAwal: item.statusAbsensi,
+                      keteranganAwal: item.keterangan,
                       suratUrl: item.fileUrl,
                     ),
                   ),

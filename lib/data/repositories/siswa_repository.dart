@@ -69,22 +69,33 @@ class SiswaRepository {
     }
   }
 
-  /// Get student for scan with minimal data needed
+  // In-memory cache for fast QR scan student lookups
+  final Map<String, ({int id, String nama, int? kelasId})> _scanStudentCache = {};
+
+  /// Get student for scan with minimal data needed (cached for ultra-fast response)
   Future<({int id, String nama, int? kelasId})?> findForScan(String nis) async {
+    final cleanNis = nis.trim();
+    if (_scanStudentCache.containsKey(cleanNis)) {
+      return _scanStudentCache[cleanNis];
+    }
+
     try {
       final response = await _client
           .from(DbTables.siswa)
           .select('${SiswaColumns.id}, ${SiswaColumns.nama}, ${SiswaColumns.kelasId}')
-          .eq(SiswaColumns.nis, nis)
+          .eq(SiswaColumns.nis, cleanNis)
           .maybeSingle();
 
       if (response == null) return null;
 
-      return (
+      final studentData = (
         id: response[SiswaColumns.id] as int,
         nama: response[SiswaColumns.nama] as String,
         kelasId: response[SiswaColumns.kelasId] as int?,
       );
+
+      _scanStudentCache[cleanNis] = studentData;
+      return studentData;
     } on PostgrestException catch (e) {
       debugPrint('Error finding student for scan: ${e.message}');
       return null;

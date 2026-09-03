@@ -61,26 +61,28 @@ class AnimatedAttendanceRing extends StatelessWidget {
         duration: const Duration(milliseconds: 1200),
         curve: Curves.easeOutCubic,
         builder: (context, progress, child) {
-          return CustomPaint(
-            painter: _RingPainter(
-              progress: progress,
-              strokeWidth: strokeWidth,
-              gradientColors: gradientColors,
-            ),
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    '${(progress * 100).toInt()}%',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: size * 0.22,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.5,
+          return RepaintBoundary(
+            child: CustomPaint(
+              painter: _RingPainter(
+                progress: progress,
+                strokeWidth: strokeWidth,
+                gradientColors: gradientColors,
+              ),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '${(progress * 100).toInt()}%',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: size * 0.22,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.5,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           );

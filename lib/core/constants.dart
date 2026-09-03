@@ -110,6 +110,7 @@ abstract class KelasColumns {
   static const String id = 'id';
   static const String namaKelas = 'nama_kelas';
   static const String tingkat = 'tingkat';
+  static const String waliKelas = 'wali_kelas';
   static const String waliKelasId = 'wali_kelas_id';
   static const String jumlahSiswa = 'jumlah_siswa';
   static const String jamMasuk = 'jam_masuk';

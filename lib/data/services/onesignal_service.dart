@@ -5,6 +5,7 @@ import 'package:onesignal_flutter/onesignal_flutter.dart';
 
 import '../../core/constants.dart';
 import '../models/wali_murid_models.dart';
+import 'supabase_service.dart';
 import 'wali_storage_service.dart';
 
 /// Service to handle OneSignal Push Notifications and Attendance Alerts
@@ -311,7 +312,8 @@ class OneSignalService {
     return true;
   }
 
-  /// Core method to send push notification via OneSignal REST API
+  /// Core method to send push notification.
+  /// Prioritizes secure Supabase Edge Function (`send-push`), with local dev REST fallback.
   static Future<bool> sendPushNotification({
     List<Map<String, dynamic>>? filters,
     List<String>? targetExternalUserIds,
@@ -321,51 +323,65 @@ class OneSignalService {
     Map<String, dynamic>? data,
   }) async {
     final appId = AppConstants.onesignalAppId;
-    final restApiKey = AppConstants.onesignalRestApiKey;
 
     if (appId.isEmpty) {
       debugPrint('[OneSignal Push] Batal kirim: ONESIGNAL_APP_ID kosong');
       return false;
     }
 
+    final payload = <String, dynamic>{
+      'app_id': appId,
+      'headings': {
+        'en': heading,
+        'id': heading,
+      },
+      'contents': {
+        'en': content,
+        'id': content,
+      },
+      'target_channel': 'push',
+      if (data != null) 'data': data,
+      'android_accent_color': 'FF2F6CB0',
+    };
+
+    if (targetExternalUserIds != null && targetExternalUserIds.isNotEmpty) {
+      // Use v1 API field only – include_aliases is v2-only and causes silent failures
+      payload['include_external_user_ids'] = targetExternalUserIds;
+      payload['channel_for_external_user_ids'] = 'push';
+    } else if (filters != null && filters.isNotEmpty) {
+      payload['filters'] = filters;
+    } else if (targetSegments != null && targetSegments.isNotEmpty) {
+      payload['included_segments'] = targetSegments;
+    } else {
+      payload['included_segments'] = ['Total Subscriptions'];
+    }
+
+    // 1. Primary: Try secure Supabase Edge Function (REST Key stays on backend)
+    try {
+      final functionRes = await supabaseService.client.functions.invoke(
+        'send-push',
+        body: payload,
+      );
+      if (functionRes.status == 200) {
+        debugPrint('[OneSignal Push] Berhasil dikirim via Supabase Edge Function.');
+        return true;
+      }
+    } catch (_) {
+      // Edge function may not be deployed yet; fallback to direct REST if key is present
+    }
+
+    // 2. Fallback: Direct OneSignal REST API (Development / Testing only)
+    final restApiKey = AppConstants.onesignalRestApiKey;
     if (restApiKey.isEmpty) {
       debugPrint(
-        '[OneSignal Push] Batal kirim: ONESIGNAL_REST_API_KEY belum dikonfigurasi di .env. '
-        'Isi REST API Key di .env untuk mengaktifkan pengiriman notifikasi dari aplikasi.',
+        '[OneSignal Push] Catatan: REST API Key tidak disimpan di aplikasi (Aman). '
+        'Gunakan Supabase Edge Function atau Webhook backend untuk memicu notifikasi push produksi.',
       );
       return false;
     }
 
     try {
       final url = Uri.parse('https://onesignal.com/api/v1/notifications');
-      final payload = <String, dynamic>{
-        'app_id': appId,
-        'headings': {
-          'en': heading,
-          'id': heading,
-        },
-        'contents': {
-          'en': content,
-          'id': content,
-        },
-        'target_channel': 'push',
-        if (data != null) 'data': data,
-        'android_accent_color': 'FF2F6CB0',
-      };
-
-      if (targetExternalUserIds != null && targetExternalUserIds.isNotEmpty) {
-        // Use v1 API field only – include_aliases is v2-only and causes silent failures
-        payload['include_external_user_ids'] = targetExternalUserIds;
-        payload['channel_for_external_user_ids'] = 'push';
-      } else if (filters != null && filters.isNotEmpty) {
-        payload['filters'] = filters;
-      } else if (targetSegments != null && targetSegments.isNotEmpty) {
-        payload['included_segments'] = targetSegments;
-      } else {
-        payload['included_segments'] = ['Total Subscriptions'];
-      }
-
-      // Handle both v1 and v2 API key authorization prefix
       final authHeader = restApiKey.startsWith('Key ') || restApiKey.startsWith('Basic ')
           ? restApiKey
           : (restApiKey.startsWith('os_v2_') ? 'Key $restApiKey' : 'Basic $restApiKey');
@@ -383,15 +399,12 @@ class OneSignalService {
       final recipients = (body['recipients'] as num?)?.toInt() ?? 0;
       final errors = body['errors'];
 
-      if ((response.statusCode == 200 || response.statusCode == 201) && errors == null && recipients > 0) {
-        debugPrint('[OneSignal Push] Notifikasi berhasil dikirim ($recipients penerima): ${response.body}');
-        return true;
-      } else if ((response.statusCode == 200 || response.statusCode == 201) && (body['id'] as String?)?.isNotEmpty == true && errors == null) {
-        debugPrint('[OneSignal Push] Notifikasi diterima server OneSignal: ${response.body}');
+      if ((response.statusCode == 200 || response.statusCode == 201) && errors == null) {
+        debugPrint('[OneSignal Push] Notifikasi berhasil dikirim ($recipients penerima)');
         return true;
       } else {
         debugPrint(
-          '[OneSignal Push] Info pengiriman notifikasi (${response.statusCode}): ${response.body}',
+          '[OneSignal Push] Response OneSignal (${response.statusCode}): ${body['errors'] ?? body['id'] ?? response.body}',
         );
         return false;
       }

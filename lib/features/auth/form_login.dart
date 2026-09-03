@@ -60,16 +60,10 @@ class _LoginScreenState extends State<LoginScreen> {
           MaterialPageRoute(builder: (context) => const AuthWrapper()),
         );
       }
-    } on AuthException catch (e) {
-      String msg = e.message;
-      if (msg.contains('Invalid login credentials')) {
-        msg = 'Email atau password salah. Pastikan akun guru sudah terdaftar.';
-      } else if (msg.contains('Email not confirmed')) {
-        msg = 'Email belum dikonfirmasi di Supabase.';
-      }
-      _showErrorSnackbar(msg);
     } catch (e) {
-      _showErrorSnackbar('Gagal login: $e');
+      final msg = ErrorFormatter.format(e);
+      _showErrorSnackbar(msg);
+      HapticFeedback.vibrate();
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -100,7 +94,7 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
     } catch (e) {
-      final msg = e.toString().replaceAll('Exception: ', '');
+      final msg = ErrorFormatter.format(e);
       _showErrorSnackbar(msg);
       HapticFeedback.vibrate();
     } finally {
@@ -110,19 +104,32 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _showErrorSnackbar(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
       SnackBar(
         content: Row(
           children: [
-            const Icon(Icons.error_outline_rounded, color: Colors.white),
+            const Icon(Icons.info_outline_rounded, color: Colors.white, size: 20),
             const SizedBox(width: 12),
-            Expanded(child: Text(message)),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  height: 1.3,
+                ),
+              ),
+            ),
           ],
         ),
-        backgroundColor: const Color(0xFFEF4444),
+        backgroundColor: const Color(0xFFDC2626),
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        margin: const EdgeInsets.all(16),
+        duration: const Duration(seconds: 4),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       ),
     );
   }

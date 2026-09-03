@@ -100,9 +100,57 @@ class AuthRepository {
         params: {'p_guru_id': userId},
       );
 
-      return (response as List)
+      final summaries = (response as List)
           .map((item) => ClassSummary.fromJson(item as Map<String, dynamic>))
           .toList();
+
+      // Ensure students with status 'pulang' (checked out today) are accurately counted
+      for (int i = 0; i < summaries.length; i++) {
+        final summary = summaries[i];
+        if (summary.pulang == 0) {
+          try {
+            final students = await _client.rpc(
+              RpcFunctions.getSiswaKelasHariIni,
+              params: {'p_nama_kelas': summary.namaKelas},
+            );
+            if (students is List && students.isNotEmpty) {
+              int pulangCount = 0;
+              int hadirCount = 0;
+              int terlambatCount = 0;
+              int sakitCount = 0;
+              int izinCount = 0;
+              int alfaCount = 0;
+
+              for (final s in students) {
+                final st = (s['status_absensi'] as String? ?? '').toLowerCase();
+                if (st == 'pulang') pulangCount++;
+                if (st == 'hadir') hadirCount++;
+                if (st == 'terlambat') terlambatCount++;
+                if (st == 'sakit') sakitCount++;
+                if (st == 'izin') izinCount++;
+                if (st == 'alfa') alfaCount++;
+              }
+
+              if (pulangCount > 0) {
+                summaries[i] = ClassSummary(
+                  namaKelas: summary.namaKelas,
+                  totalSiswa: students.length,
+                  hadir: hadirCount,
+                  terlambat: terlambatCount,
+                  sakit: sakitCount,
+                  izin: izinCount,
+                  alfa: alfaCount,
+                  pulang: pulangCount,
+                );
+              }
+            }
+          } catch (e) {
+            debugPrint('Info checking class ${summary.namaKelas} today: $e');
+          }
+        }
+      }
+
+      return summaries;
     } on supabase.PostgrestException catch (e) {
       throw RepositoryException(
         message: 'Gagal mengambil data dashboard: ${e.message}',

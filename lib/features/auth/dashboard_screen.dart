@@ -34,8 +34,34 @@ class _DashboardView extends StatefulWidget {
   State<_DashboardView> createState() => _DashboardViewState();
 }
 
-class _DashboardViewState extends State<_DashboardView> {
+class _DashboardViewState extends State<_DashboardView>
+    with WidgetsBindingObserver {
   String? _selectedKelas;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!mounted) return;
+    final logic = context.read<DashboardLogic>();
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
+      logic.stopAutoRefresh();
+    } else if (state == AppLifecycleState.resumed) {
+      logic.loadDashboard(isBackground: true);
+      logic.startAutoRefresh();
+    }
+  }
 
   void _onKelasSelected(String namaKelas) {
     setState(() => _selectedKelas = namaKelas);
@@ -952,7 +978,7 @@ class _ClassSummaryCard extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _StatItem('Hadir', data.hadir, const Color(0xFF10B981), Icons.check_circle_outline_rounded),
+                  _StatItem('Hadir', data.hadir + data.pulang, const Color(0xFF10B981), Icons.check_circle_outline_rounded),
                   _StatItem('Telat', data.terlambat, const Color(0xFFF59E0B), Icons.schedule_rounded),
                   _StatItem('Sakit', data.sakit, const Color(0xFF3B82F6), Icons.healing_rounded),
                   _StatItem('Izin', data.izin, const Color(0xFF8B5CF6), Icons.assignment_outlined),

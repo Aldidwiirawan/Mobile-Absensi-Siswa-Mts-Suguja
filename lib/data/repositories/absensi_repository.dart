@@ -97,10 +97,38 @@ class AbsensiRepository {
       // Check existing attendance
       final existingData = await _client
           .from(DbTables.absensi)
-          .select()
+          .select('${AbsensiColumns.id}, ${AbsensiColumns.waktuMasuk}, ${AbsensiColumns.waktuPulang}, ${AbsensiColumns.status}')
           .eq(AbsensiColumns.siswaId, siswaId)
           .eq(AbsensiColumns.tanggal, todayStr)
           .maybeSingle();
+
+      // If student is already marked as Alfa, Sakit, or Izin, reject scanner changes
+      if (existingData != null) {
+        final currentStatus =
+            (existingData[AbsensiColumns.status] as String? ?? '').toLowerCase();
+        if (currentStatus == 'alfa') {
+          return AbsensiResult(
+            success: false,
+            message: '⛔ STATUS ALFA (Tidak Hadir)\n$namaSiswa',
+            status: AttendanceStatus.alfa,
+            isCheckIn: false,
+          );
+        } else if (currentStatus == 'sakit') {
+          return AbsensiResult(
+            success: false,
+            message: '🏥 STATUS SAKIT (Izin Dokter)\n$namaSiswa',
+            status: AttendanceStatus.sakit,
+            isCheckIn: false,
+          );
+        } else if (currentStatus == 'izin') {
+          return AbsensiResult(
+            success: false,
+            message: '📝 STATUS IZIN (Disetujui)\n$namaSiswa',
+            status: AttendanceStatus.izin,
+            isCheckIn: false,
+          );
+        }
+      }
 
       final bool isBelumAbsenMasuk =
           existingData == null || existingData[AbsensiColumns.waktuMasuk] == null;
@@ -239,16 +267,35 @@ class AbsensiRepository {
     required int siswaId,
     required DateTime tanggal,
     required AttendanceStatus status,
+    String? keterangan,
+    bool clearWaktuMasuk = false,
+    String? updatedBy,
   }) async {
     try {
       final tanggalStr = tanggal.toIso8601String().split('T').first;
+      final currentUserId = updatedBy ?? _client.auth.currentUser?.id;
 
-      final data = {
+      final data = <String, dynamic>{
         AbsensiColumns.siswaId: siswaId,
         AbsensiColumns.tanggal: tanggalStr,
         AbsensiColumns.status: status.value,
+        AbsensiColumns.keterangan: (keterangan != null && keterangan.trim().isNotEmpty)
+            ? keterangan.trim()
+            : null,
+        if (currentUserId != null && currentUserId.isNotEmpty)
+          AbsensiColumns.updatedBy: currentUserId,
         AbsensiColumns.updatedAt: DateTime.now().toIso8601String(),
       };
+
+      // Jika status alfa, sakit, atau izin (atau clearWaktuMasuk == true),
+      // waktu_masuk & waktu_pulang dihapus / diset null
+      if (clearWaktuMasuk ||
+          status == AttendanceStatus.alfa ||
+          status == AttendanceStatus.sakit ||
+          status == AttendanceStatus.izin) {
+        data[AbsensiColumns.waktuMasuk] = null;
+        data[AbsensiColumns.waktuPulang] = null;
+      }
 
       await _client.from(DbTables.absensi).upsert(
             data,

@@ -232,8 +232,9 @@ class _ScanDashboardScreenState extends State<ScanDashboardScreen>
 
                     // Ultra-Smooth Harmonic Floating Scan Button
                     Center(
-                      child: AnimatedBuilder(
-                        animation: _animController,
+                      child: RepaintBoundary(
+                        child: AnimatedBuilder(
+                          animation: _animController,
                         builder: (context, child) {
                           final t = _animController.value;
                           // Pure continuous harmonic sine wave (100% seamless without reverse jumps)
@@ -346,6 +347,7 @@ class _ScanDashboardScreenState extends State<ScanDashboardScreen>
                         },
                       ),
                     ),
+                  ),
 
                     const SizedBox(height: 60),
 

@@ -22,10 +22,12 @@ class _ContinuousScannerDialogState extends State<ContinuousScannerDialog> {
   final SiswaRepository _siswaRepository = SiswaRepository();
   final AbsensiRepository _absensiRepository = AbsensiRepository();
 
-  bool _isProcessing = false;
-  String? _lastScan;
-  DateTime _lastScanTime = DateTime.now();
+  // Track recent scan times per NIS (prevents duplicate scans of the SAME student)
+  final Map<String, DateTime> _recentScans = {};
+  final Set<String> _inFlightNis = {};
+
   Color _borderColor = const Color(0xFF3B82F6); // Initial blue glow
+  Timer? _borderResetTimer;
 
   Widget? _currentPopup;
   Timer? _popupTimer;
@@ -33,6 +35,7 @@ class _ContinuousScannerDialogState extends State<ContinuousScannerDialog> {
   @override
   void dispose() {
     _popupTimer?.cancel();
+    _borderResetTimer?.cancel();
     super.dispose();
   }
 
@@ -56,12 +59,12 @@ class _ContinuousScannerDialogState extends State<ContinuousScannerDialog> {
         type: type,
         onDismiss: () {
           _popupTimer?.cancel();
-          setState(() => _currentPopup = null);
+          if (mounted) setState(() => _currentPopup = null);
         },
       );
     });
 
-    _popupTimer = Timer(const Duration(milliseconds: 2800), () {
+    _popupTimer = Timer(const Duration(milliseconds: 2400), () {
       if (mounted) {
         setState(() => _currentPopup = null);
       }
@@ -69,40 +72,51 @@ class _ContinuousScannerDialogState extends State<ContinuousScannerDialog> {
   }
 
   Future<void> _handleScan(String result) async {
-    if (_isProcessing) return;
+    final nis = result.trim();
+    if (nis.isEmpty) return;
 
     final now = DateTime.now();
-    // Debounce: Prevent scanning same code within 2 seconds
-    if (result == _lastScan &&
-        now.difference(_lastScanTime).inMilliseconds <
+
+    // 1. Debounce only for the EXACT SAME student (prevent double scan within 2s)
+    final lastScanTime = _recentScans[nis];
+    if (lastScanTime != null &&
+        now.difference(lastScanTime).inMilliseconds <
             UiConstants.scanDebounceMs) {
       return;
     }
 
-    _lastScan = result;
-    _lastScanTime = now;
+    // 2. Prevent concurrent processing of the exact same NIS
+    if (_inFlightNis.contains(nis)) return;
 
-    setState(() {
-      _isProcessing = true;
-      _borderColor = const Color(0xFFFBBF24); // Amber scanning color
-    });
+    _recentScans[nis] = now;
+    _inFlightNis.add(nis);
+
+    // Clean up memory cache for very old scans
+    if (_recentScans.length > 60) {
+      _recentScans.removeWhere((_, time) => now.difference(time).inSeconds > 10);
+    }
+
+    // Immediate scanning glow visual feedback
+    _borderResetTimer?.cancel();
+    if (mounted) {
+      setState(() => _borderColor = const Color(0xFFFBBF24));
+    }
 
     try {
-      // Find student by NIS
-      final siswaData = await _siswaRepository.findForScan(result);
+      // Find student by NIS (instant via memory cache)
+      final siswaData = await _siswaRepository.findForScan(nis);
 
       if (siswaData == null) {
         throw StudentNotFoundException(
           message: 'Siswa tidak ditemukan',
-          nis: result,
+          nis: nis,
         );
       }
 
       // Process attendance
-      // `result` is the scanned NIS value from the QR code
       final absensiResult = await _absensiRepository.processCheckIn(
         siswaId: siswaData.id,
-        nis: result,
+        nis: nis,
         namaSiswa: siswaData.nama,
         kelasId: siswaData.kelasId,
       );
@@ -119,7 +133,7 @@ class _ContinuousScannerDialogState extends State<ContinuousScannerDialog> {
             }
             _showResultPopup(
               namaSiswa: siswaData.nama,
-              nis: result,
+              nis: nis,
               statusTitle: 'TERLAMBAT',
               statusSubtitle:
                   'Terlambat ${absensiResult.lateMinutes ?? 0} menit. Tetap semangat!',
@@ -132,7 +146,7 @@ class _ContinuousScannerDialogState extends State<ContinuousScannerDialog> {
             }
             _showResultPopup(
               namaSiswa: siswaData.nama,
-              nis: result,
+              nis: nis,
               statusTitle: 'HADIR TEPAT WAKTU 🌟',
               statusSubtitle: 'Presensi masuk berhasil dicatat. Selamat belajar!',
               type: ScanFeedbackType.success,
@@ -145,7 +159,7 @@ class _ContinuousScannerDialogState extends State<ContinuousScannerDialog> {
           }
           _showResultPopup(
             namaSiswa: siswaData.nama,
-            nis: result,
+            nis: nis,
             statusTitle: 'ABSEN PULANG 👋',
             statusSubtitle: 'Presensi pulang berhasil. Hati-hati di perjalanan!',
             type: ScanFeedbackType.pulang,
@@ -159,9 +173,10 @@ class _ContinuousScannerDialogState extends State<ContinuousScannerDialog> {
         }
         _showResultPopup(
           namaSiswa: siswaData.nama,
-          nis: result,
+          nis: nis,
           statusTitle: 'PERINGATAN',
-          statusSubtitle: absensiResult.message.replaceAll('\n${siswaData.nama}', ''),
+          statusSubtitle:
+              absensiResult.message.replaceAll('\n${siswaData.nama}', ''),
           type: ScanFeedbackType.warning,
         );
       }
@@ -169,7 +184,7 @@ class _ContinuousScannerDialogState extends State<ContinuousScannerDialog> {
       HapticFeedback.vibrate();
       if (mounted) setState(() => _borderColor = const Color(0xFFEF4444));
       _showResultPopup(
-        namaSiswa: 'NIS: ${e.nis ?? result}',
+        namaSiswa: 'NIS: ${e.nis ?? nis}',
         statusTitle: 'TIDAK TERDAFTAR',
         statusSubtitle: 'Data siswa belum terdaftar di database.',
         type: ScanFeedbackType.error,
@@ -193,14 +208,17 @@ class _ContinuousScannerDialogState extends State<ContinuousScannerDialog> {
         type: ScanFeedbackType.error,
       );
     } finally {
-      // Delay before resetting standby border color
-      await Future.delayed(const Duration(milliseconds: 1600));
-      if (mounted) {
-        setState(() {
-          _isProcessing = false;
-          _borderColor = const Color(0xFF3B82F6);
-        });
-      }
+      _inFlightNis.remove(nis);
+
+      // Reset border color to standby non-blockingly without delaying next scan
+      _borderResetTimer?.cancel();
+      _borderResetTimer = Timer(const Duration(milliseconds: 1000), () {
+        if (mounted && _inFlightNis.isEmpty) {
+          setState(() {
+            _borderColor = const Color(0xFF3B82F6);
+          });
+        }
+      });
     }
   }
 
